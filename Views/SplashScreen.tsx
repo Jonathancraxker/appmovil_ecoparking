@@ -46,7 +46,7 @@ export default function SplashScreen() {
         />
       </Animated.View>
       <Animated.Text style={[styles.appName, textStyle]}>
-        My App
+        Ecoparking
       </Animated.Text>
     </View>
   );

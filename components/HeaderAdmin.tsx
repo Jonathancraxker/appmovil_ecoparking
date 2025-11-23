@@ -1,25 +1,41 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ImageBackground } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ImageBackground, Alert } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { logoutUser } from '../services/authService'; // Importamos la nueva función
 
 export default function HeaderAdmin({ title }: { title: string }) {
   const router = useRouter();
 
   const handleLogout = async () => {
-    try {
-      await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('rol');
-      router.replace('/'); // 🔁 Redirige al login
-    } catch (error) {
-      console.error('Error al cerrar sesión:', error);
-    }
-  };
+      // Llamada directa a la función de logout centralizada
+      await logoutUser();
+      // Redirección al login
+      router.replace('/'); 
+    };
+  
+  // const handleLogout = async () => {
+  //   // Confirmación opcional para mejor experiencia de usuario
+  //   Alert.alert(
+  //     "Cerrar Sesión",
+  //     "¿Estás seguro que deseas salir?",
+  //     [
+  //       { text: "Cancelar", style: "cancel" },
+  //       { 
+  //         text: "Salir", 
+  //         style: "destructive",
+  //         onPress: async () => {
+  //           await logoutUser(); // Llamamos al servicio para cerrar sesión
+  //           router.replace('/'); // Redirigimos al login
+  //         }
+  //       }
+  //     ]
+  //   );
+  // };
 
   return (
     <ImageBackground
-      source={require('../assets/images/image.png')} // 🖼️ Coloca aquí tu imagen en la carpeta assets
+      source={require('../assets/images/image.png')} 
       style={styles.headerBackground}
       resizeMode="cover"
     >
@@ -42,7 +58,7 @@ const styles = StyleSheet.create({
   },
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)', // 🔳 Oscurece la imagen un poco
+    backgroundColor: 'rgba(0, 0, 0, 0.3)', 
   },
   headerContent: {
     flexDirection: 'row',
@@ -54,11 +70,11 @@ const styles = StyleSheet.create({
   title: {
     color: '#fff',
     fontSize: 22,
-    fontFamily: 'Montserrat-Regular',
+    fontFamily: 'Montserrat-Regular', 
   },
   logoutButton: {
     padding: 6,
     borderRadius: 8,
-    backgroundColor: 'rgba(108, 154, 139, 0.6)', // 💚 sutil fondo verde translúcido
+    backgroundColor: 'rgba(108, 154, 139, 0.6)', 
   },
 });

@@ -9,6 +9,7 @@ import {
   View,
   Modal,
   ScrollView,
+  ActivityIndicator
 } from 'react-native';
 import { useFonts } from 'expo-font';
 import HeaderJucas from '../../components/HeaderJucas';
@@ -20,16 +21,23 @@ import {
 } from '../../services/authService';
 
 export default function ProfileScreenT() {
+  // Estados de Datos
   const [id, setId] = useState('');
   const [nombre, setNombre] = useState('');
   const [correo, setCorreo] = useState('');
   const [telefono, setTelefono] = useState('');
   const [division, setDivision] = useState('');
   const [rol, setRol] = useState('');
+  const [codigo, setCodigo] = useState('');
 
-  // Modal contraseña
+  // Estados de UI
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false); // Controla si se pueden editar los campos
+
+  // Estados para el Modal de Contraseña
   const [modalVisible, setModalVisible] = useState(false);
   const [nuevaPassword, setNuevaPassword] = useState('');
+  const [confirmarPassword, setConfirmarPassword] = useState(''); // Nueva confirmación
 
   const [fontsLoaded] = useFonts({
     Poppins: require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
@@ -38,64 +46,100 @@ export default function ProfileScreenT() {
     Roboto_Mono: require('../../assets/fonts/Roboto_Mono/RobotoMono-Regular.ttf'),
   });
 
-  useEffect(() => {
-    const cargar = async () => {
-      const data = await getProfile();
-      if (data.message) {
-        Alert.alert('Error', data.message);
-        return;
-      }
-
+  // Cargar Perfil
+  const cargarPerfil = async () => {
+    setLoading(true);
+    const data = await getProfile();
+    if (data.message) {
+      Alert.alert('Error', data.message);
+    } else {
       setId(data.id);
       setNombre(data.nombre);
       setCorreo(data.correo);
       setTelefono(data.telefono);
       setDivision(data.division);
       setRol(data.tipo_usuario);
-    };
+      setCodigo(data.codigo);
+    }
+    setLoading(false);
+  };
 
-    cargar();
+  useEffect(() => {
+    cargarPerfil();
   }, []);
 
-  if (!fontsLoaded) return null;
-
-  // Actualizar perfil
+  // Función para Actualizar Perfil
   const handleActualizar = async () => {
-    const result = await updateProfile(id, nombre, telefono, division);
+    const data = { nombre, correo, telefono, division };
+    if (telefono.length !== 10) {
+      Alert.alert('Alerta', 'El teléfono debe tener exactamente 10 dígitos.');
+      return;
+    }
+    setLoading(true);
+    const result = await updateProfile(id, data);
+    setLoading(false);
 
-    if (result.message) {
+    if (result.message && !result.message.toLowerCase().includes('actualizado')) {
       Alert.alert('Error', result.message);
       return;
     }
 
-    Alert.alert('Perfil actualizado', `✅ Los datos se guardaron correctamente.`);
+    Alert.alert('Éxito', 'Perfil actualizado correctamente.');
+    setIsEditing(false);
   };
 
-  // Actualizar contraseña
+  // Función para Cancelar Edición (Recarga los datos originales)
+  const handleCancelarEdicion = () => {
+    setIsEditing(false);
+    cargarPerfil(); // Vuelve a traer los datos del servidor para deshacer cambios locales
+  };
+
+// Actualizar contraseña
   const handleActualizarPassword = async () => {
     if (!nuevaPassword.trim()) {
       Alert.alert('Error', 'Escribe la nueva contraseña.');
       return;
     }
 
-    const result = await updateUserPassword(id, { contrasena: nuevaPassword });
-
-    if (result.message) {
-      Alert.alert('Error', result.message);
-      return;
+    if (nuevaPassword.length < 8) { // Mínimo 8 caracteres
+        Alert.alert('Contraseña Insegura', 'La contraseña debe tener al menos 8 caracteres.');
+        return;
+    }
+    
+    // Validación de al menos 1 carácter especial
+    const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-]/;
+    if (!specialCharRegex.test(nuevaPassword)) {
+        Alert.alert('Contraseña Insegura', 'La contraseña debe contener al menos un carácter especial (ej. @, #, $, %, -).');
+        return;
     }
 
-    Alert.alert('Éxito', 'Contraseña actualizada correctamente.');
-
-    setNuevaPassword('');
-    setModalVisible(false);
+    setLoading(true);
+    const result = await updateUserPassword(id, nuevaPassword);
+    setLoading(false);
+    if (result.message === "Contraseña actualizada exitosamente" || result.message?.toLowerCase().includes("exitosa") || result.message?.toLowerCase().includes("correctamente")) {
+        Alert.alert('Éxito', 'Contraseña actualizada correctamente.');
+        setNuevaPassword('');
+        setModalVisible(false);
+    } else {
+        Alert.alert('Error', result.message || 'No se pudo actualizar la contraseña.');
+    }
   };
+
+  if (!fontsLoaded) return null;
+
+  if (loading && !id) { // Solo muestra spinner pantalla completa si es la primera carga
+      return (
+          <View style={[styles.container, {justifyContent: 'center', alignItems: 'center'}]}>
+              <ActivityIndicator size="large" color="#6C9A8B" />
+          </View>
+      );
+  }
 
   return (
     <View style={styles.container}>
       <HeaderJucas title="Perfil" />
 
-      {/* MODAL CAMBIAR PASSWORD */}
+      {/* --- MODAL CAMBIAR PASSWORD --- */}
       <Modal transparent visible={modalVisible} animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
@@ -110,18 +154,31 @@ export default function ProfileScreenT() {
               onChangeText={setNuevaPassword}
             />
 
+            <TextInput
+              style={[styles.input, { marginTop: 10 }]}
+              placeholder="Confirmar contraseña"
+              placeholderTextColor="#AAB7B8"
+              secureTextEntry
+              value={confirmarPassword}
+              onChangeText={setConfirmarPassword}
+            />
+
             <TouchableOpacity style={styles.button} onPress={handleActualizarPassword}>
-              <Text style={styles.buttonText}>Actualizar</Text>
+              {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Actualizar</Text>}
             </TouchableOpacity>
 
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Text style={{ textAlign: 'center', marginTop: 12 }}>Cancelar</Text>
+            <TouchableOpacity onPress={() => {
+                setModalVisible(false);
+                setNuevaPassword('');
+                setConfirmarPassword('');
+            }}>
+              <Text style={{ textAlign: 'center', marginTop: 12, color: '#666' }}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* SCROLL */}
+      {/* --- CONTENIDO PRINCIPAL --- */}
       <ScrollView contentContainerStyle={{ alignItems: 'center', paddingBottom: 40 }}>
         <Text style={styles.title}>Mi Perfil</Text>
 
@@ -133,57 +190,94 @@ export default function ProfileScreenT() {
 
           <Text style={styles.label}>Nombre</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, !isEditing && styles.inputDisabled]}
             value={nombre}
             onChangeText={setNombre}
             placeholder="Tu nombre completo"
             placeholderTextColor="#AAB7B8"
+            editable={isEditing}
           />
 
           <Text style={styles.label}>Correo</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: '#E9ECEF' }]}
+            style={[styles.input, !isEditing && styles.inputDisabled]}
             value={correo}
-            editable={false}
+            onChangeText={setCorreo}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            editable={isEditing}
           />
 
           <Text style={styles.label}>Teléfono</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, !isEditing && styles.inputDisabled]}
             value={telefono}
             onChangeText={setTelefono}
             placeholder="Número de contacto"
             placeholderTextColor="#AAB7B8"
+            keyboardType="phone-pad"
+            editable={isEditing}
+            maxLength={10}
           />
 
           <Text style={styles.label}>División</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, !isEditing && styles.inputDisabled]}
             value={division}
             onChangeText={setDivision}
             placeholder="Ej. Ingeniería en Software"
             placeholderTextColor="#AAB7B8"
+            editable={isEditing}
           />
 
           <Text style={styles.label}>Rol</Text>
           <TextInput
-            style={[styles.input, { backgroundColor: '#E9ECEF' }]}
+            style={[styles.input, styles.inputReadOnly]}
             value={rol}
             editable={false}
           />
+          
+          <Text style={styles.label}>Código</Text>
+          <TextInput
+            style={[styles.input, styles.inputReadOnly]}
+            value={codigo}
+            editable={false}
+          />
 
-          {/* BOTÓN GUARDAR */}
-          <TouchableOpacity style={styles.button} onPress={handleActualizar}>
-            <Text style={styles.buttonText}>Guardar Cambios</Text>
-          </TouchableOpacity>
+          {/* --- BOTONES DE ACCIÓN --- */}
+          {!isEditing ? (
+            // MODO VISUALIZACIÓN
+            <>
+                <TouchableOpacity style={styles.button} onPress={() => setIsEditing(true)}>
+                    <Text style={styles.buttonText}>Editar Perfil</Text>
+                </TouchableOpacity>
 
-          {/* BOTÓN CAMBIAR CONTRASEÑA */}
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: '#34495E', marginTop: 10 }]}
-            onPress={() => setModalVisible(true)}
-          >
-            <Text style={styles.buttonText}>Cambiar Contraseña</Text>
-          </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.button, { backgroundColor: '#34495E', marginTop: 10 }]}
+                    onPress={() => setModalVisible(true)}
+                >
+                    <Text style={styles.buttonText}>Cambiar Contraseña</Text>
+                </TouchableOpacity>
+            </>
+          ) : (
+            // MODO EDICIÓN
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+                <TouchableOpacity 
+                    style={[styles.button, { flex: 1, marginRight: 5, backgroundColor: '#95A5A6', marginTop: 0 }]} 
+                    onPress={handleCancelarEdicion}
+                >
+                    <Text style={styles.buttonText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity 
+                    style={[styles.button, { flex: 1, marginLeft: 5, marginTop: 0 }]} 
+                    onPress={handleActualizar}
+                >
+                    {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>Guardar</Text>}
+                </TouchableOpacity>
+            </View>
+          )}
+
         </View>
       </ScrollView>
     </View>
@@ -237,6 +331,17 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter',
     fontSize: 14,
     color: '#2E4053',
+  },
+  // Estilo nuevo para inputs deshabilitados (cuando no se está editando)
+  inputDisabled: {
+    backgroundColor: '#FAFAFA', // Un gris muy suave
+    color: '#5D6D7E', // Texto un poco más claro
+    borderColor: '#E5E8E8'
+  },
+  // Estilo para inputs que NUNCA se editan (Rol, Código)
+  inputReadOnly: {
+    backgroundColor: '#E9ECEF',
+    color: '#7F8C8D'
   },
   button: {
     backgroundColor: '#6C9A8B',

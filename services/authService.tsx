@@ -4,7 +4,7 @@ import axios from 'axios';
 // ----------------------------------------------------------
 // 🔵 BASE URL DEL BACKEND
 // ----------------------------------------------------------
-const BASE_URL = 'http://10.13.11.255:4000/ecoparking';
+const BASE_URL = 'http://192.168.1.205:4000/ecoparking';
 
 // ----------------------------------------------------------
 // 🔵 AXIOS PRINCIPAL (CON INTERCEPTORES)
@@ -111,13 +111,9 @@ export const getProfile = async () => {
 export const updateProfile = async (id, data) => {
   try {
     const token = await AsyncStorage.getItem("accessToken");
-
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
     const response = await api.patch(`/usuarios/update/${id}`, data);
-
     return response.data;
-
   } catch (error) {
     console.log("❌ Error updateProfile:", error.response?.data || error);
     return error.response?.data || { message: "Error al actualizar perfil" };
@@ -132,11 +128,9 @@ export const updateUserPassword = async (id, password) => {
     const token = await AsyncStorage.getItem("accessToken");
 
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-
     const response = await api.put(`/usuarios/update/${id}`, {
       contrasena: password
     });
-
     return response.data;
 
   } catch (error) {
@@ -145,9 +139,37 @@ export const updateUserPassword = async (id, password) => {
   }
 };
 
+// ... (tus otras funciones: loginUser, getProfile, etc.) ...
+
 // ----------------------------------------------------------
+// 🔴 CERRAR SESIÓN (LOGOUT)
+// ----------------------------------------------------------
+export const logoutUser = async () => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    
+    // Intentamos avisar al backend (opcional pero recomendado)
+    if (token) {
+        api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        await api.post('/logout'); 
+    }
+  } catch (error) {
+    console.log("⚠️ Error al avisar logout al backend (no crítico):", error);
+  } finally {
+    // SIEMPRE borramos los datos locales, pase lo que pase
+    await AsyncStorage.removeItem('accessToken');
+    await AsyncStorage.removeItem('refreshToken');
+    await AsyncStorage.removeItem('userData');
+    await AsyncStorage.removeItem('rol');
+    
+    // Limpiamos el header de axios
+    delete api.defaults.headers.common['Authorization'];
+    
+    return { success: true };
+  }
+};
+
 // 🟢 REGISTRAR CITA
-// ----------------------------------------------------------
 export const registrarCitaService = async (data) => {
   try {
     const token = await AsyncStorage.getItem("accessToken");

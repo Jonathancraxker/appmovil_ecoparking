@@ -7,38 +7,42 @@ export default function TabsAdmin() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#2E4053',
-        tabBarInactiveTintColor: '#cccccc',
-        tabBarLabelStyle: { fontFamily: 'Montserrat-Regular', fontSize: 12 },
+        tabBarInactiveTintColor: '#e0e0e0', // Cambié a un gris claro para mejor contraste
+        tabBarLabelStyle: { 
+            fontFamily: 'Montserrat-Regular', 
+            fontSize: 12,
+            marginBottom: 5 // Un pequeño margen extra para el texto
+        },
         headerShown: false,
         tabBarStyle: {
-          height: 60,
+          height: 80,
+          // bottom: '1',
           paddingBottom: 5,
-          paddingTop: 5,
+          paddingTop: 10,
           backgroundColor: '#6C9A8B',
           borderTopWidth: 0,
-          elevation: 8,
+          elevation: 10,
         },
       }}
     >
-      
-
       {/* 🏠 Home */}
       <Tabs.Screen
         name="home"
         options={{
           title: 'Inicio',
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Ionicons name="home-outline" size={24} color={color} /> // Tamaño fijo recomendado
           ),
         }}
       />
+      
       {/* 🗓 Crear cita */}
       <Tabs.Screen
         name="citas"
         options={{
           title: 'Crear Cita',
           tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="event-available" size={size} color={color} />
+            <MaterialIcons name="event-available" size={24} color={color} />
           ),
         }}
       />
@@ -49,27 +53,10 @@ export default function TabsAdmin() {
         options={{
           title: 'Perfil',
           tabBarIcon: ({ color, size }) => (
-            <FontAwesome5 name="user-circle" size={size} color={color} />
+            <FontAwesome5 name="user-circle" size={22} color={color} /> // FontAwesome suele ser más grande, bajamos un poco el size
           ),
         }}
       />
-
-      {/* 🔒 Ocultos */}
-      <Tabs.Screen name="asistenciaAdmin" options={{ href: null }} />
-      <Tabs.Screen name="certificacionesAdmin" options={{ href: null }} />
-      <Tabs.Screen name="gestionarEventos" options={{ href: null }} />
-      <Tabs.Screen name="gestionarInsignias" options={{ href: null }} />
-      <Tabs.Screen name="gestionCumple" options={{ href: null }} />
-      <Tabs.Screen name="gestionUsuario" options={{ href: null }} />
-      <Tabs.Screen name="participacionAdmin" options={{ href: null }} />
-      <Tabs.Screen name="notificaciones" options={{ href: null }} />
-      <Tabs.Screen name="eventos" options={{ href: null }} />
-      <Tabs.Screen name="anunciosstudents" options={{ href: null }} />
-      <Tabs.Screen name="certificaciones" options={{ href: null }} />
-      <Tabs.Screen name="gestionRecompensas" options={{ href: null }} />
-      <Tabs.Screen name="vista-participacion" options={{ href: null }} />
-      <Tabs.Screen name="tokens" options={{ href: null }} />
-      <Tabs.Screen name="gestionAnuncios" options={{ href: null }} />
     </Tabs>
   );
 }
