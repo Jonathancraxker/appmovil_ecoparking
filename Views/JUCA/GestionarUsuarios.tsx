@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback  } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import HeaderAdmin from '../../components/HeaderAdmin'; // Usamos HeaderAdmin si es para el admin
 import { useFonts } from 'expo-font';
+import { useIsFocused } from '@react-navigation/native';
 
 // Importamos tus servicios existentes
 import {
@@ -37,6 +38,7 @@ const initialFormData = {
 
 export default function GestionarUsuario() {
   // Estados
+  const isFocused = useIsFocused();
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -70,8 +72,10 @@ export default function GestionarUsuario() {
   };
 
   useEffect(() => {
+    if (isFocused){
     fetchUsuarios();
-  }, []);
+  }
+  }, [isFocused]);
 
   // --- MANEJADORES DEL FORMULARIO ---
   const handleOpenModal = (user: any = null) => {
@@ -97,14 +101,34 @@ export default function GestionarUsuario() {
 
   const handleSubmit = async () => {
     // Validaciones básicas
-    if (!formData.nombre || !formData.correo || !formData.codigo || !formData.telefono) {
+    if (!formData.nombre || !formData.correo || !formData.codigo || !formData.telefono || !formData.division) {
         Alert.alert("Campos incompletos", "Por favor llena los campos obligatorios.");
         return;
     }
 
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.correo)) {
+        Alert.alert("Correo inválido", "Por favor ingresa un correo electrónico válido.");
+        return;
+    }
+    
     // Validación contraseña al crear
-    if (!currentUser && formData.contrasena.length < 8) {
+        if (!currentUser) {
+                // Longitud
+        if (formData.contrasena.length < 8) {
         Alert.alert("Contraseña Insegura", "La contraseña debe tener al menos 8 caracteres.");
+        return;
+        }
+                // Caracter especial
+                const specialCharRegex = /[!@#$%^&*(),.?":{}|<>_\-]/;
+                if (!specialCharRegex.test(formData.contrasena)) {
+                    Alert.alert("Contraseña Insegura", "La contraseña debe contener al menos un carácter especial (ej. @, #, $, %).");
+                    return;
+                }
+        }
+
+        if (formData.telefono.length !== 10) {
+        Alert.alert("Teléfono incompleto", "Ingresa 10 dígitos");
         return;
     }
 

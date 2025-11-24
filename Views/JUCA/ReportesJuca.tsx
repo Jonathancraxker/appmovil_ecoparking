@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 import { useFonts } from 'expo-font';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { useIsFocused } from '@react-navigation/native';
 
 // Importaciones para Archivos
 import * as FileSystem from 'expo-file-system';
@@ -30,6 +31,7 @@ import {
 } from '../../services/reportesService';
 
 export default function ReportesJuca() {
+  const isFocused = useIsFocused();
   const [loading, setLoading] = useState(true);
   const [reportes, setReportes] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -47,8 +49,10 @@ export default function ReportesJuca() {
   });
 
   useEffect(() => {
-    cargarDatos();
-  }, []);
+    if (isFocused) {
+        cargarDatos();
+    }
+  }, [isFocused]);
 
   const cargarDatos = async () => {
     setLoading(true);
@@ -310,8 +314,11 @@ export default function ReportesJuca() {
                         <Text style={styles.repDate}>
                             📅 {new Date(rep.fecha_reporte).toLocaleDateString()}
                         </Text>
+                        <Text style={styles.repHora}>
+                            ⏰ {new Date(rep.fecha_reporte).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                        </Text>
                         <Text style={styles.repMotivo}>Cita: {rep.motivo_cita}</Text>
-                        <Text style={styles.repUser}>Creado por: <Text style={{fontWeight: 'bold'}}>{rep.nombre_usuario}</Text> ({rep.tipo_usuario})</Text>
+                        <Text style={styles.repUser}>Creado por: <Text style={{fontWeight: 'bold'}}>{rep.correo_usuario}</Text> ({rep.tipo_usuario})</Text>
                     </View>
                     <TouchableOpacity 
                         style={styles.pdfBtn} 
@@ -374,6 +381,7 @@ const styles = StyleSheet.create({
 
   reportItem: { flexDirection: 'row', backgroundColor: '#FFF', padding: 15, borderRadius: 10, marginBottom: 10, alignItems: 'center', borderLeftWidth: 4, borderLeftColor: '#6C9A8B', elevation: 2 },
   repDate: { fontFamily: 'Inter', fontSize: 12, color: '#888', marginBottom: 2 },
+  repHora: { fontFamily: 'Inter', fontSize: 12, color: '#888', marginBottom: 2 },
   repMotivo: { fontFamily: 'Poppins-SemiBold', fontSize: 15, color: '#2E4053' },
   repUser: { fontFamily: 'Inter', fontSize: 13, color: '#34495E', marginTop: 2 },
   pdfBtn: { padding: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FDEBD0', borderRadius: 8, minWidth: 50 },

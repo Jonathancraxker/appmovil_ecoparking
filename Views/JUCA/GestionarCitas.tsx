@@ -178,6 +178,7 @@ export default function Homeadm() {
       hora_fin: horaFin,
       motivo: titulo,
       estado_cita: estadoCita,
+      numero_invitados: selectedCita.numero_invitados,
     };
 
     const result = await updateCitaService(selectedCita.id, dataToSend);

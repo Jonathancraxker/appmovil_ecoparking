@@ -178,6 +178,7 @@ export default function Homeadm() {
       hora_fin: horaFin,
       motivo: titulo,
       estado_cita: estadoCita,
+      numero_invitados: selectedCita.numero_invitados,
     };
 
     const result = await updateCitaService(selectedCita.id, dataToSend);
@@ -291,8 +292,7 @@ export default function Homeadm() {
       <HeaderAdmin title="Mis Citas" />
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text style={styles.welcome}>Bienvenido, administrador 👋</Text>
-        <Text style={styles.sectionTitle}>Gestión de Citas</Text>
+        <Text style={styles.sectionTitle}>Gestión Citas</Text>
 
         {loading && !showInvitadoModal ? (
              <ActivityIndicator size="large" color="#6C9A8B" style={{marginTop: 50}} />
