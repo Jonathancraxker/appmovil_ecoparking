@@ -77,3 +77,54 @@ export const deleteCitaService = async (id) => {
     console.log("❌ Error deleteCita:", error.response?.data || error);
   }
 };
+
+// --- GESTIÓN DE INVITADOS ---
+
+// Obtener invitados por ID de cita
+export const getInvitadosByCitaService = async (idCita: number) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const response = await api.get(`/citas/${idCita}/invitados`);
+    return response.data;
+  } catch (error) {
+    console.log("❌ Error getInvitados:", error);
+    return [];
+  }
+};
+
+// Registrar nuevo invitado (POST)
+export const registrarInvitadoService = async (data: any) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const response = await api.post('/invitados', data);
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Error al registrar invitado" };
+  }
+};
+
+// Actualizar invitado (PATCH)
+export const updateInvitadoService = async (id: number, data: any) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const response = await api.patch(`/invitados/${id}`, data);
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Error al actualizar invitado" };
+  }
+};
+
+// Eliminar invitado (DELETE)
+export const deleteInvitadoService = async (id: number) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const response = await api.delete(`/invitados/${id}`);
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Error al eliminar invitado" };
+  }
+};

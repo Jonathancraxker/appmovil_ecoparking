@@ -15,8 +15,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { useFonts } from 'expo-font';
-import HeaderAdmin from '../../components/HeaderAdmin';
-import { registrarCitaService } from '../../services/citasServiceAdm';
+import HeaderAdmin from '../../components/HeaderJucas';
+import { registrarCitaService } from '../../services/citasServiceJuca';
 
 export default function CitasAdmin() {
 
