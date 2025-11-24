@@ -45,10 +45,18 @@ export default function HomeScreen() {
             <Text style={styles.cardDesc}>Consulta y administra tus clientes</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.card}>
+          <TouchableOpacity style={styles.card} 
+          onPress={() => navigation.navigate('perfilJuca')}>
             <MaterialIcons name="settings" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Configuración</Text>
             <Text style={styles.cardDesc}>Ajusta tu cuenta y preferencias</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.card} 
+          onPress={() => navigation.navigate('reportes')}>
+            <MaterialIcons name="bar-chart" size={40} color="#6C9A8B" />
+            <Text style={styles.cardTitle}>Reportes</Text>
+            <Text style={styles.cardDesc}>Revisa las estadísticas</Text>
           </TouchableOpacity>
 
         </View>

@@ -11,8 +11,10 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { loginUser, refreshToken } from '../services/authService';
 import { useFonts } from 'expo-font';
+
+// Importamos solo loginUser desde tu servicio corregido
+import { loginUser } from '../services/authService';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -28,26 +30,28 @@ export default function LoginScreen() {
     Inter: require('../assets/fonts/Inter/Inter_28pt-Regular.ttf'),
   });
 
+  // 1. VERIFICACIÓN DE SESIÓN SIMPLIFICADA
   useEffect(() => {
     const verifySession = async () => {
       try {
-        let token = await AsyncStorage.getItem('accessToken');
+        const token = await AsyncStorage.getItem('accessToken');
         const rol = await AsyncStorage.getItem('rol');
+        const userData = await AsyncStorage.getItem('userData');
 
-        if (!token) {
-          token = await refreshToken();
-        }
-
-        if (token && rol) {
-          if (rol.toLowerCase().includes('juc')) {
+        // Si tenemos token y rol guardados, redirigimos automáticamente
+        if (token && rol && userData) {
+          // Verificación exacta (Case Sensitive según tu petición)
+          if (rol.includes('Juca')) {
             router.replace('/(tabs-Juca)/homeJuca');
-          } else {
+          } else if (rol.includes('Administrativo') || rol.includes('Profesor')) {
             router.replace('/(tabs-AdmPro)/home');
-          }
-          return;
+        } else {
+            // Fallback por si acaso (opcional, puedes quitarlo si estás seguro)
+            Alert.alert("Error de Rol", "No tienes permiso para acceder a la app.");
+        }
         }
       } catch (error) {
-        console.log('Error al verificar sesión:', error);
+        console.log('Sesión no encontrada, permanecer en login');
       } finally {
         setCheckingSession(false);
       }
@@ -65,25 +69,27 @@ export default function LoginScreen() {
     try {
       const data = await loginUser(correo, contrasena, codigo);
 
-      if (data.user && data.token && data.refreshToken) {
-        await AsyncStorage.setItem('accessToken', data.token);
-        await AsyncStorage.setItem('refreshToken', data.refreshToken);
-        await AsyncStorage.setItem('userData', JSON.stringify(data.user));
-        await AsyncStorage.setItem('rol', codigo.toLowerCase());
-
+      if (data.success) {
         Alert.alert('Bienvenido', `Hola ${data.user.nombre || 'usuario'} 👋`);
+        const rolUsuario = data.user.tipo_usuario || codigo;
 
-        if (codigo.toLowerCase().includes('juc')) {
+        if (rolUsuario === 'Juca') {
           router.replace('/(tabs-Juca)/homeJuca');
-        } else {
+        } else if (rolUsuario === 'Administrativo' || rolUsuario === 'Profesor') {
           router.replace('/(tabs-AdmPro)/home');
+        } else {
+            // Fallback por si acaso (opcional, puedes quitarlo si estás seguro)
+            Alert.alert("Error de Rol", "No tienes permiso para acceder a la app.");
         }
+
       } else {
-        Alert.alert('Error', data.message || 'No se pudo iniciar sesión.');
+        // Aquí mostramos el mensaje de error real que viene del servicio
+        Alert.alert('Aviso', data.message);
       }
+
     } catch (err: any) {
-      console.log('❌ Error al iniciar sesión:', err.message);
-      Alert.alert('Error', 'No se pudo conectar con el servidor.');
+      console.log('Error inesperado:', err);
+      Alert.alert('Error', 'Ocurrió un problema inesperado.');
     } finally {
       setLoading(false);
     }
@@ -95,9 +101,6 @@ export default function LoginScreen() {
     return (
       <View style={[styles.container, { justifyContent: 'center' }]}>
         <ActivityIndicator size="large" color="#6C9A8B" />
-        <Text style={{ color: '#fff', marginTop: 10, fontFamily: 'Poppins' }}>
-          Verificando sesión...
-        </Text>
       </View>
     );
   }
@@ -124,6 +127,7 @@ export default function LoginScreen() {
             keyboardType="email-address"
             style={styles.input}
             placeholderTextColor="#888"
+            autoCapitalize="none"
           />
 
           <Text style={styles.label}>Contraseña</Text>
@@ -143,6 +147,7 @@ export default function LoginScreen() {
             placeholder="Ej. JUC123 o ADM123"
             style={styles.input}
             placeholderTextColor="#888"
+            // No forzamos 'characters' para que el usuario escriba exacto lo que quiera
           />
 
           <TouchableOpacity

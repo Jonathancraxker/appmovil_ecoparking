@@ -44,6 +44,14 @@
           }
         }
       ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Permitir que Ecoparking acceda a tus fotos.",
+          "savePhotosPermission": "Permitir que Ecoparking guarde códigos QR.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
       "expo-font"
     ],
     "experiments": {

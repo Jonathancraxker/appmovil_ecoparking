@@ -8,14 +8,13 @@ export default function HeaderAdmin({ title }: { title: string }) {
   const router = useRouter();
 
   const handleLogout = async () => {
-      // Llamada directa a la función de logout centralizada
       await logoutUser();
       // Redirección al login
       router.replace('/'); 
     };
   
   // const handleLogout = async () => {
-  //   // Confirmación opcional para mejor experiencia de usuario
+  //   // Confirmación opcional para experiencia de usuario
   //   Alert.alert(
   //     "Cerrar Sesión",
   //     "¿Estás seguro que deseas salir?",

@@ -13,7 +13,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 
 import { useFonts } from 'expo-font';
 import HeaderAdmin from '../../components/HeaderAdmin';
-import { registrarCitaService } from '../../services/authService';
+import { registrarCitaService } from '../../services/citasServiceAdm';
 
 export default function CitasAdmin() {
 
