@@ -2,7 +2,7 @@
   "expo": {
     "name": "Ecoparking_App",
     "slug": "Ecoparking_App",
-    "version": "1.0.0",
+    "version": "1.0.1", // 🚨 ACTUALIZADO PARA LA PRÓXIMA COMPILACIÓN
     "orientation": "portrait",
     "icon": "./assets/images/logo_app.png",
     "scheme": "ecoparkingapp",
@@ -21,15 +21,9 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.jonathan_ssj.Ecoparking_App",
-      "permissions": [
-        "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE",
-        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
-        "android.permission.ACCESS_MEDIA_LOCATION",
-        "android.permission.READ_MEDIA_IMAGES",
-        "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_AUDIO"
-      ]
+      // AGREGAR versionCODE AQUÍ PARA EL BUILD
+      "versionCode": 2 
+      // ELIMINAMOS EL ARRAY "permissions" COMPLETO
     },
     "web": {
       "output": "static",
@@ -53,8 +47,8 @@
         "expo-media-library",
         {
           "photosPermission": "Permitir que Ecoparking acceda a tus fotos.",
-          "savePhotosPermission": "Permitir que Ecoparking guarde códigos QR.",
-          "isAccessMediaLocationEnabled": true
+          "savePhotosPermission": "Permitir que Ecoparking guarde códigos QR."
+          // El plugin maneja los permisos necesarios (Fotos/Videos)
         }
       ],
       "expo-font"

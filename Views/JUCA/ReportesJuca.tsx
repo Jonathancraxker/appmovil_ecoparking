@@ -129,36 +129,71 @@ export default function ReportesJuca() {
       }
   };
 
+  const PERSISTENT_URI_KEY = 'SAF_DOWNLOAD_URI';
   // --- Lógica específica para Android (SAF) ---
   const saveAndroidFile = async (fileUri: string, fileName: string) => {
-      try {
-          const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-          
-          if (permissions.granted) {
-              // Leer el archivo descargado como Base64
-              const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' }); // Usar string 'base64' para evitar errores
-              
-              // Crear el archivo en la carpeta seleccionada por el usuario
-              const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
-                  permissions.directoryUri, 
-                  fileName, 
-                  'application/pdf'
-              );
+    let directoryUri = await AsyncStorage.getItem(PERSISTENT_URI_KEY);
+    
+    try {
+        let requiresNewPermission = false;
 
-              // Escribir el contenido
-              await FileSystem.writeAsStringAsync(newFileUri, base64, { encoding: 'base64' });
-              
-              Alert.alert("Guardado", "El PDF se guardó en la carpeta seleccionada.");
-          } else {
-              // Si el usuario cancela, intentamos compartir como alternativa
-              await Sharing.shareAsync(fileUri, { mimeType: 'application/pdf', dialogTitle: 'Guardar PDF' });
-          }
-      } catch (e) {
-          console.log("Error guardando Android:", e);
-          // Fallback a compartir si algo falla en SAF
-          await Sharing.shareAsync(fileUri, { mimeType: 'application/pdf' });
-      }
-  };
+        // 1. Si NO tenemos un URI guardado, necesitamos pedir uno.
+        if (!directoryUri) {
+            requiresNewPermission = true;
+        } 
+        // 2. NOTA: Eliminamos la verificación getUriPermissionsAsync porque es la que causa el TypeError.
+        // Si el URI guardado ya no tiene permisos, el error ocurrirá en el paso 4 y se solicitará uno nuevo.
+
+        if (requiresNewPermission) {
+            // Paso A: Solicitar un nuevo permiso de carpeta al usuario
+            const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+            
+            if (!permissions.granted) {
+                // Si el usuario cancela, hacemos el fallback a Sharing
+                await Sharing.shareAsync(fileUri, { mimeType: 'application/pdf', dialogTitle: 'Guardar PDF' });
+                return;
+            }
+            
+            // Guardar el nuevo URI
+            directoryUri = permissions.directoryUri;
+            await AsyncStorage.setItem(PERSISTENT_URI_KEY, directoryUri);
+        }
+
+        // --- Continuar con la escritura del archivo ---
+        
+        // 3. Leer el archivo descargado como Base64
+        const base64 = await FileSystem.readAsStringAsync(fileUri, { encoding: 'base64' });
+        
+        // 4. Intentar crear el archivo en la carpeta seleccionada (usando el URI persistente)
+        const newFileUri = await FileSystem.StorageAccessFramework.createFileAsync(
+            directoryUri!, // Usamos el URI que ahora debe ser válido
+            fileName, 
+            'application/pdf'
+        );
+
+        // 5. Escribir el contenido
+        await FileSystem.writeAsStringAsync(newFileUri, base64, { encoding: 'base64' });
+        
+        Alert.alert("Guardado", "El PDF se guardó en la carpeta seleccionada.");
+
+    } catch (e) {
+        // Este bloque se ejecuta si:
+        // a) El create/write falla (URI inválido/expirado, etc.)
+        // b) Ocurre un error imprevisto (como el TypeError que eliminamos, o un error de lectura/escritura)
+        
+        console.log("Error guardando Android (SAF):", e); 
+        
+        // Borramos el URI corrupto para forzar una nueva selección la próxima vez
+        await AsyncStorage.removeItem(PERSISTENT_URI_KEY); 
+        
+        // Fallback a compartir el archivo
+        Alert.alert(
+            "Error de Guardado", 
+            "No se pudo guardar el archivo. Intenta seleccionando la carpeta de nuevo.",
+            [{ text: "Compartir", onPress: () => Sharing.shareAsync(fileUri, { mimeType: 'application/pdf' }) }]
+        );
+    }
+};
 
   if (!fontsLoaded) return null;
 
