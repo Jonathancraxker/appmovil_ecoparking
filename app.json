@@ -20,9 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.jonathan_ssj.Ecoparking_App",
-      // AGREGAR versionCODE AQUÍ PARA EL BUILD
-      "versionCode": 2 
+      "package": "com.jonathan_ssj.Ecoparking_App"
       // ELIMINAMOS EL ARRAY "permissions" COMPLETO
     },
     "web": {
