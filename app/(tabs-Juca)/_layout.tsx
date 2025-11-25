@@ -32,17 +32,6 @@ export default function TabsAdmin() {
         }}
       />
       
-      {/* ✅ Crear cita */}
-      <Tabs.Screen
-        name="crearCita"
-        options={{
-          title: 'Crear cita',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="add-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      
       {/* ✅ Citas */}
       <Tabs.Screen
         name="citasJucas"

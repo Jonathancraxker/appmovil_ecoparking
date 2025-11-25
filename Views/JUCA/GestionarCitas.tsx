@@ -18,9 +18,10 @@ import QRCode from 'react-native-qrcode-svg';
 import { useIsFocused } from '@react-navigation/native';
 
 // Importaciones de Expo
-import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
-
+import { captureRef } from 'react-native-view-shot';
 import HeaderAdmin from '../../components/HeaderJucas';
 
 // 1. IMPORTACIONES DESDE citasServiceAdm
@@ -36,6 +37,7 @@ import {
 
 export default function Homeadm() {
   // --- ESTADOS UI ---
+  const qrContainerRef = useRef(null);
   const [modalVisible, setModalVisible] = useState(false); // Editar Cita
   const [deleteVisible, setDeleteVisible] = useState(false); // Eliminar Cita
   const [showInvitadoModal, setShowInvitadoModal] = useState(false); // Gestionar Invitados
@@ -269,21 +271,50 @@ export default function Homeadm() {
       ]);
   };
 
-  // --- PROCESAR QR ---
-  const procesarQR = (modo: 'compartir' | 'guardar') => {
-    if (!qrValue || !qrCodeRef.current) return;
-    qrCodeRef.current.toDataURL(async (data: string) => {
-      const filename = FileSystem.cacheDirectory + 'qr_ecoparking.png';
-      try {
-        await FileSystem.writeAsStringAsync(filename, data, { encoding: 'base64' });
-        await Sharing.shareAsync(filename, { mimeType: 'image/png', dialogTitle: modo === 'guardar' ? 'Guardar Código QR' : 'Compartir Código QR' });
-      } catch (err: any) {
-        if (!err.message?.includes('deprecated')) {
-             Alert.alert("Error", "No se pudo procesar el QR.");
+// --- PROCESAR QR (Captura el QR + Texto para compartir o descargar) ---
+const procesarQR = (modo: 'compartir' | 'guardar') => {
+    if (!selectedCita || !qrContainerRef.current) return; // Usamos la nueva ref
+
+    const citaId = selectedCita.id;
+    
+    // 1. Capturar la vista (QR + Texto del ID) como URI temporal
+    captureRef(qrContainerRef, {
+        format: 'png',
+        quality: 1.0,
+        result: 'base64', // Capturamos como Base64 para escribir el archivo
+        height: 250, // Ajusta la altura si es necesario para capturar el texto
+    }).then(async (data) => {
+        
+        // Generar nombre de archivo ÚNICO (incluyendo el ID de la cita)
+        const filenameUnique = `qr_ecoparking_cita_${citaId}.png`;
+        const fileUri = FileSystem.cacheDirectory + filenameUnique;
+
+        try {
+            // Guardar en la caché de Expo (El data ya es el base64 de la imagen completa)
+            await FileSystem.writeAsStringAsync(fileUri, data, { encoding: 'base64' });
+
+            if (modo === 'compartir') {
+                await Sharing.shareAsync(fileUri, { mimeType: 'image/png', dialogTitle: 'Compartir Código QR' });
+            } else if (modo === 'guardar') {
+                // Pedir Permisos y Guardar en Galería (MediaLibrary)
+                const { status } = await MediaLibrary.requestPermissionsAsync();
+                
+                if (status === 'granted') {
+                    await MediaLibrary.saveToLibraryAsync(fileUri);
+                    Alert.alert("¡Descarga Exitosa!", `El código QR se guardó en la galería.`);
+                } else {
+                    Alert.alert("Permiso Denegado", "Se necesita permiso para acceder a la galería y guardar el código QR.");
+                }
+            }
+        } catch (err: any) {
+            console.error("Error al procesar/guardar QR:", err);
+            Alert.alert("Error", "No se pudo guardar el QR, intenta de nuevo o compártelo.");
         }
-      }
+    }).catch(error => {
+        console.error("Error al capturar la vista:", error);
+        Alert.alert("Error", "No se pudo generar la imagen para exportar.");
     });
-  };
+};
 
   if (!fontsLoaded) return null;
 
@@ -503,12 +534,28 @@ export default function Homeadm() {
         <View style={styles.modalContainer}>
           <View style={[styles.modalBox, { alignItems: 'center', paddingVertical: 25 }]}>
             <Text style={[styles.modalTitle, {marginBottom: 20}]}>Código QR</Text>
-            <View style={{ backgroundColor: 'white', padding: 15, borderRadius: 10, elevation: 5 }}>
-                {qrValue ? <QRCode value={qrValue} size={200} backgroundColor='white' quietZone={5} getRef={(c) => (qrCodeRef.current = c)} /> : <Text>Error</Text>}
+            {/* VIEW CONTENEDORA QUE SERÁ CAPTURADA */}
+            <View ref={qrContainerRef} collapsable={false} style={{ alignItems: 'center', padding: 10, backgroundColor: 'white' }}> 
+              {/* 1. Código QR */}
+              <View style={{ backgroundColor: 'white', padding: 15, borderRadius: 10 }}>
+              {qrValue ? <QRCode value={qrValue} size={200} backgroundColor='white' quietZone={5} /> : <Text>Error</Text>}
+              </View>
+                {/* 2. Texto del ID (se añade debajo del QR) */}
+                {selectedCita && <Text style={{
+                    fontFamily: 'Poppins-SemiBold', 
+                    fontSize: 14, 
+                    color: '#000000ff', 
+                    marginTop: 10,
+                    textAlign: 'center'
+                }}>
+                    Cita: #{selectedCita.id}
+                </Text>}
+                
             </View>
+            {/* FIN de la VIEW CONTENEDORA */}
             <View style={{width: '100%', marginTop: 25, gap: 12}}>
                 <TouchableOpacity onPress={() => procesarQR('compartir')} style={[styles.actionButton, { backgroundColor: '#3498DB' }]}><MaterialIcons name="share" size={24} color="#FFF" /><Text style={styles.actionButtonText}>Compartir</Text></TouchableOpacity>
-                <TouchableOpacity onPress={() => procesarQR('guardar')} style={[styles.actionButton, { backgroundColor: '#27AE60' }]}><MaterialIcons name="file-download" size={24} color="#FFF" /><Text style={styles.actionButtonText}>Guardar</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => procesarQR('guardar')} style={[styles.actionButton, { backgroundColor: '#27AE60' }]}><MaterialIcons name="file-download" size={24} color="#FFF" /><Text style={styles.actionButtonText}>Descargar</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => setQrModalVisible(false)} style={[styles.actionButton, { backgroundColor: '#95A5A6' }]}><Text style={styles.actionButtonText}>Cerrar</Text></TouchableOpacity>
             </View>
           </View>
