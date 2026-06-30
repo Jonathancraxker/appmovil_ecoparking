@@ -22,7 +22,7 @@ import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import HeaderAdmin from '../../components/HeaderJucas';
+import HeaderAdmin from '../../components/HeaderAdmin';
 
 // 1. IMPORTACIONES DESDE citasServiceAdm
 import {
