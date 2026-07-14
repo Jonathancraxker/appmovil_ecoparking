@@ -62,6 +62,13 @@ export default function TabsAdmin() {
           ),
         }}
       />
+      <Tabs.Screen 
+        name="gestionarCitasJuca" 
+        options={{
+          title: 'Mis Citas',
+          tabBarIcon: ({ color }) => <MaterialIcons name="event-note" size={24} color={color} />
+        }} 
+      />
       {/* Gestionar citas y usuarios */}
       <Tabs.Screen name="gestionarcitas" options={{ href: null }} />
       <Tabs.Screen name="gestionarusuario" options={{ href: null }} />

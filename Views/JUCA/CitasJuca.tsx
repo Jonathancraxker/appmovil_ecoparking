@@ -1,50 +1,53 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker'; // <--- IMPORTANTE
-import { useIsFocused } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Modal,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+  Platform
 } from 'react-native';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import QRCode from 'react-native-qrcode-svg';
+import { Picker } from '@react-native-picker/picker'; // <--- IMPORTANTE: Picker para Cajones
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 // Importaciones de Expo
-import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import HeaderAdmin from '../../components/HeaderAdmin';
+import HeaderJucas from '../../components/HeaderJucas'; 
 
-// IMPORTACIONES DESDE citasServiceAdm
+// IMPORTAMOS EL SERVICIO QUE TRAE SOLO "MIS CITAS"
 import {
-    deleteCitaService,
-    deleteInvitadoService,
-    getInvitadosByCitaService,
-    getMisCitasService,
-    registrarInvitadoService,
-    updateCitaService,
-    updateInvitadoService
-} from "../../services/citasServiceAdm";
+  getMisCitasJucaService,
+  deleteCitaService,
+  updateCitaService,
+  getInvitadosByCitaService,
+  registrarInvitadoService,
+  updateInvitadoService,
+  deleteInvitadoService
+} from "../../services/citasServiceJuca";
 
-// IMPORTACIÓN DEL SERVICIO DE CAJONES
+// IMPORTAMOS EL SERVICIO DE CAJONES
 import { filtrarCajonesService } from '../../services/cajonesService';
 
-export default function Homeadm() {
+export default function CitasJuca() {
+  const navigation = useNavigation<any>();
+  
   // --- ESTADOS UI ---
   const qrContainerRef = useRef(null);
-  const [modalVisible, setModalVisible] = useState(false); // Editar Cita
-  const [deleteVisible, setDeleteVisible] = useState(false); // Eliminar Cita
-  const [showInvitadoModal, setShowInvitadoModal] = useState(false); // Gestionar Invitados
-  const [qrModalVisible, setQrModalVisible] = useState(false); // Ver QR
+  const [modalVisible, setModalVisible] = useState(false); 
+  const [deleteVisible, setDeleteVisible] = useState(false); 
+  const [showInvitadoModal, setShowInvitadoModal] = useState(false); 
+  const [qrModalVisible, setQrModalVisible] = useState(false); 
   
   const [menuVisible, setMenuVisible] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -63,12 +66,12 @@ export default function Homeadm() {
   const [hora, setHora] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [estadoCita, setEstadoCita] = useState('');
-  
+
   // --- NUEVOS ESTADOS PARA CAJONES (EDICIÓN) ---
   const [cajones, setCajones] = useState<any[]>([]);
   const [idCajon, setIdCajon] = useState(''); 
   const [loadingCajones, setLoadingCajones] = useState(false);
-
+  
   // --- FORMULARIO INVITADOS ---
   const [invitadosList, setInvitadosList] = useState<any[]>([]);
   const [currentInvitado, setCurrentInvitado] = useState<any>(null);
@@ -77,7 +80,7 @@ export default function Homeadm() {
     correo: '', 
     empresa: '', 
     tipo_visitante: '',
-    matricula: '' // NUEVO: Campo para editar matrícula
+    matricula: '' // Campo de matrícula
   });
 
   // --- PICKERS ---
@@ -92,12 +95,10 @@ export default function Homeadm() {
     Inter: require('../../assets/fonts/Inter/Inter_28pt-Regular.ttf'),
   });
 
-  // --- EFECTOS ---
   useEffect(() => {
     if (isFocused) cargarCitas();
   }, [isFocused]);
 
-  // --- HELPERS PARA FECHAS ---
   const getDateFromString = (dateStr: string) => {
     if (!dateStr) return new Date();
     const [year, month, day] = dateStr.split('-').map(Number);
@@ -126,7 +127,7 @@ export default function Homeadm() {
             fecha_fin: fechaFin, 
             hora_inicio: hora, 
             hora_fin: horaFin,
-            id_cita: selectedCita.id // Pasamos el ID para que la DB ignore el cajón que ya tiene asignado esta cita
+            id_cita: selectedCita.id // Pasamos el ID de la cita actual
         });
         setCajones(data);
         if (data.length === 0) Alert.alert("Aviso", "No hay cajones disponibles en ese horario.");
@@ -137,11 +138,10 @@ export default function Homeadm() {
     }
   };
 
-  // --- FUNCIONES PRINCIPALES ---
   const cargarCitas = async () => {
     setLoading(true);
     try {
-        const data = await getMisCitasService(); 
+        const data = await getMisCitasJucaService(); 
         setCitas(data);
     } catch (error) {
         console.log(error);
@@ -161,8 +161,8 @@ export default function Homeadm() {
       setHora(cita.hora_inicio || '');
       setHoraFin(cita.hora_fin || '');
       setEstadoCita(cita.estado_cita || 'Confirmada');
-      setIdCajon(cita.id_cajon?.toString() || ''); // Si ya tenía un cajón, lo cargamos
-      setCajones([]); // Limpiamos la lista previa de cajones
+      setIdCajon(cita.id_cajon?.toString() || ''); // Cargamos el cajón actual si tiene
+      setCajones([]); // Reseteamos la lista de opciones
       setModalVisible(true);
     }
 
@@ -195,7 +195,6 @@ export default function Homeadm() {
     }
   };
 
-  // --- GESTIÓN DE CITA (EDICIÓN/ELIMINACIÓN) ---
   const guardarEdicionCita = async () => {
     if (!titulo || !fecha || !fechaFin || !hora || !horaFin) {
       Alert.alert("Error", "Todos los campos básicos de la cita son obligatorios");
@@ -210,7 +209,7 @@ export default function Homeadm() {
       motivo: titulo,
       estado_cita: estadoCita,
       numero_invitados: selectedCita.numero_invitados,
-      id_cajon: idCajon || null // Enviamos el cajón si se seleccionó alguno
+      id_cajon: idCajon || null // Enviamos el ID del cajón seleccionado
     };
 
     const result = await updateCitaService(selectedCita.id, dataToSend);
@@ -218,7 +217,7 @@ export default function Homeadm() {
     if (result.message && !result.message.toLowerCase().includes('actualizada')) {
         Alert.alert("Error", result.message);
     } else {
-        Alert.alert("Éxito", "Cita actualizada correctamente");
+        Alert.alert("¡Éxito!", "Cita actualizada correctamente");
         setModalVisible(false);
         cargarCitas();
     }
@@ -231,9 +230,8 @@ export default function Homeadm() {
     cargarCitas();
   };
 
-  // --- GESTIÓN DE INVITADOS (CRUD INDIVIDUAL) ---
   const handleSaveInvitado = async () => {
-      // Agregamos validación para que matrícula sea obligatoria (quítala si es opcional)
+      // Matricula obligatoria para el registro/edición
       if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim() || !formInvitado.matricula.trim()) {
           Alert.alert("Datos incompletos", "Todos los campos son obligatorios.");
           return;
@@ -250,13 +248,13 @@ export default function Homeadm() {
                   ...formInvitado, 
                   id_cita: selectedCita.id 
               });
-              Alert.alert("Éxito", "Invitado actualizado");
+              Alert.alert("¡Éxito!", "Invitado actualizado");
           } else {
               await registrarInvitadoService({ 
                   ...formInvitado, 
                   id_cita: selectedCita.id 
               });
-              Alert.alert("Éxito", "Invitado agregado");
+              Alert.alert("¡Éxito!", "Invitado agregado");
           }
           
           const updatedList = await getInvitadosByCitaService(selectedCita.id);
@@ -278,7 +276,7 @@ export default function Homeadm() {
           correo: inv.correo,
           empresa: inv.empresa || '',
           tipo_visitante: inv.tipo_visitante || '',
-          matricula: inv.matricula || '' // Cargamos la matrícula para editar
+          matricula: inv.matricula || ''
       });
   };
 
@@ -293,7 +291,7 @@ export default function Homeadm() {
           { text: "Eliminar", style: 'destructive', onPress: async () => {
               try {
                   await deleteInvitadoService(idInv);
-                  Alert.alert("Éxito", "Invitado eliminado correctamente");
+                  Alert.alert("¡Éxito!", "Invitado eliminado correctamente");
                   const updatedList = await getInvitadosByCitaService(selectedCita.id);
                   setInvitadosList(updatedList);
                   cargarCitas();
@@ -302,23 +300,14 @@ export default function Homeadm() {
       ]);
   };
 
-// --- PROCESAR QR ---
-const procesarQR = (modo: 'compartir' | 'guardar') => {
-    if (!selectedCita || !qrContainerRef.current) return; 
-
+  const procesarQR = (modo: 'compartir' | 'guardar') => {
+    if (!selectedCita || !qrContainerRef.current) return;
     const citaId = selectedCita.id;
-    captureRef(qrContainerRef, {
-        format: 'png',
-        quality: 1.0,
-        result: 'base64',
-        height: 250, 
-    }).then(async (data) => {
+    captureRef(qrContainerRef, { format: 'png', quality: 1.0, result: 'base64', height: 250 }).then(async (data) => {
         const filenameUnique = `qr_ecoparking_cita_${citaId}.png`;
         const fileUri = FileSystem.cacheDirectory + filenameUnique;
-
         try {
             await FileSystem.writeAsStringAsync(fileUri, data, { encoding: 'base64' });
-
             if (modo === 'compartir') {
                 await Sharing.shareAsync(fileUri, { mimeType: 'image/png', dialogTitle: 'Compartir Código QR' });
             } else if (modo === 'guardar') {
@@ -327,58 +316,63 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
                     await MediaLibrary.saveToLibraryAsync(fileUri);
                     Alert.alert("¡Descarga Exitosa!", `El código QR se guardó en la galería.`);
                 } else {
-                    Alert.alert("Permiso Denegado", "Se necesita permiso para acceder a la galería y guardar el código QR.");
+                    Alert.alert("Permiso Denegado", "Se necesita permiso para acceder a la galería.");
                 }
             }
-        } catch (err: any) {
-            Alert.alert("Error", "No se pudo guardar el QR, intenta de nuevo o compártelo.");
-        }
-    }).catch(error => {
-        Alert.alert("Error", "No se pudo generar la imagen para exportar.");
-    });
-};
+        } catch (err: any) { Alert.alert("Error", "No se pudo procesar el QR."); }
+    }).catch(error => { Alert.alert("Error", "No se pudo generar la imagen."); });
+  };
 
   if (!fontsLoaded) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FDFEFE' }}>
-      <HeaderAdmin title="Mis Citas" />
+      <HeaderJucas title="Mis Citas" />
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text style={styles.sectionTitle}>Gestión Citas</Text>
+        <Text style={styles.sectionTitle}>Historial de Mis Citas</Text>
 
         {loading && !showInvitadoModal ? (
              <ActivityIndicator size="large" color="#6C9A8B" style={{marginTop: 50}} />
         ) : (
-            citas.map((cita) => (
-            <View key={cita.id} style={[styles.card, { zIndex: menuVisible === cita.id ? 1000 : 1 }]}>
-                <View style={styles.cardContent}>
-                <MaterialIcons name="event-note" size={36} color="#3498DB" style={{ marginRight: 10 }} />
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>#{cita.id} - {cita.motivo}</Text>
-                    <Text style={styles.cardDesc}>Invitados: {cita.numero_invitados}</Text>
-                    <Text style={styles.cardInfo}>📅 {cita.fecha_inicio?.split("T")[0]}   ⏰ {cita.hora_inicio}</Text>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: cita.estado_cita === 'Confirmada' ? '#27AE60' : '#E74C3C' }}>{cita.estado_cita}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setMenuVisible(menuVisible === cita.id ? null : cita.id)} style={{ padding: 10 }}>
-                    <MaterialIcons name="more-vert" size={24} color="#2E4053" />
-                </TouchableOpacity>
-                </View>
-
-                {menuVisible === cita.id && (
-                <View style={styles.overlayMenu}>
-                    <View style={styles.menuBox}>
-                    <TouchableOpacity onPress={() => handleAction("editar", cita)}><Text style={styles.menuItem}>Editar cita</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleAction("invitados", cita)}><Text style={styles.menuItem}>Ver invitados</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleAction("qr", cita)}><Text style={styles.menuItem}>Mostrar QR</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleAction("eliminar", cita)}><Text style={[styles.menuItem, { color: "#E74C3C" }]}>Eliminar Cita</Text></TouchableOpacity>
+             citas.length > 0 ? (
+                citas.map((cita) => (
+                <View key={cita.id} style={[styles.card, { zIndex: menuVisible === cita.id ? 1000 : 1 }]}>
+                    <View style={styles.cardContent}>
+                    <MaterialIcons name="event-note" size={36} color="#3498DB" style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.cardTitle}>#{cita.id} - {cita.motivo}</Text>
+                        <Text style={styles.cardDesc}>Invitados: {cita.numero_invitados}</Text>
+                        <Text style={styles.cardInfo}>📅 {cita.fecha_inicio?.split("T")[0]}   ⏰ {cita.hora_inicio}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: cita.estado_cita === 'Confirmada' ? '#27AE60' : '#E74C3C' }}>{cita.estado_cita}</Text>
                     </View>
+                    <TouchableOpacity onPress={() => setMenuVisible(menuVisible === cita.id ? null : cita.id)} style={{ padding: 10 }}>
+                        <MaterialIcons name="more-vert" size={24} color="#2E4053" />
+                    </TouchableOpacity>
+                    </View>
+
+                    {menuVisible === cita.id && (
+                    <View style={styles.overlayMenu}>
+                        <View style={styles.menuBox}>
+                        <TouchableOpacity onPress={() => handleAction("editar", cita)}><Text style={styles.menuItem}>Editar cita</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleAction("invitados", cita)}><Text style={styles.menuItem}>Ver invitados</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleAction("qr", cita)}><Text style={styles.menuItem}>Mostrar QR</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleAction("eliminar", cita)}><Text style={[styles.menuItem, { color: "#E74C3C" }]}>Eliminar Cita</Text></TouchableOpacity>
+                        </View>
+                    </View>
+                    )}
                 </View>
-                )}
-            </View>
-            ))
+                ))
+             ) : (
+                <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No tienes citas registradas aún.</Text>
+                    <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('citasJucas')}>
+                        <MaterialIcons name="add-circle-outline" size={24} color="#FFF" />
+                        <Text style={styles.emptyButtonText}>Crear una Cita</Text>
+                    </TouchableOpacity>
+                </View>
+             )
         )}
-        {citas.length === 0 && !loading && <Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>No hay citas registradas.</Text>}
       </ScrollView>
 
       {/* --- MODAL EDITAR CITA --- */}
@@ -422,7 +416,7 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
                      </View>
                 </View>
 
-                {/* BOTÓN Y SELECTOR DE CAJONES (NUEVO) */}
+                {/* BOTÓN Y SELECTOR DE CAJONES */}
                 <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 15}]} onPress={consultarCajonesEdicion}>
                     <Text style={{color: '#FFF', fontWeight: 'bold'}}>Ver Cajones Disponibles</Text>
                 </TouchableOpacity>
@@ -488,7 +482,7 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
                     
                     <View style={{flexDirection: 'row', gap: 5, marginBottom: 5}}>
                         <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Empresa" value={formInvitado.empresa} onChangeText={(t) => setFormInvitado({...formInvitado, empresa: t})} />
-                        <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Tipo" value={formInvitado.tipo_visitante} onChangeText={(t) => setFormInvitado({...formInvitado, tipo_visitante: t})} />
+                        <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Tipo (Ej. Cliente)" value={formInvitado.tipo_visitante} onChangeText={(t) => setFormInvitado({...formInvitado, tipo_visitante: t})} />
                     </View>
 
                     {/* CAMPO DE MATRÍCULA (CON CONVERSIÓN DE ESPACIO A GUION) */}
@@ -593,6 +587,13 @@ const styles = StyleSheet.create({
   overlayMenu: { position: "absolute", right: 40, top: 40, zIndex: 9999, elevation: 50 },
   menuBox: { backgroundColor: "#FFF", borderRadius: 8, paddingVertical: 5, borderWidth: 1, borderColor: "#eee", elevation: 5, minWidth: 160 },
   menuItem: { paddingVertical: 12, paddingHorizontal: 15, fontSize: 14, color: "#2E4053", fontFamily: 'Inter', borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
+  
+  /* --- ESTILOS PARA ESTADO VACÍO --- */
+  emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
+  emptyText: { color: '#888', fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  emptyButton: { flexDirection: 'row', backgroundColor: '#6C9A8B', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  emptyButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', marginLeft: 10, fontSize: 16 },
+  
   modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalBox: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, width: '100%', maxHeight: '90%' },
   modalTitle: { color: '#2E4053', fontFamily: 'Poppins-SemiBold', fontSize: 18, marginBottom: 15, textAlign: 'center' },

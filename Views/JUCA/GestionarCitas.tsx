@@ -15,16 +15,17 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import QRCode from 'react-native-qrcode-svg';
-import { useIsFocused } from '@react-navigation/native';
+import { Picker } from '@react-native-picker/picker'; 
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 // Importaciones de Expo
 import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import HeaderAdmin from '../../components/HeaderAdmin';
+import HeaderJucas from '../../components/HeaderJucas'; 
 
-// 1. IMPORTACIONES DESDE citasServiceAdm
+// 🟢 IMPORTAMOS EL SERVICIO DE ADMINISTRACIÓN GENERAL (TRAE TODAS LAS CITAS)
 import {
   getCitasAdminService,
   deleteCitaService,
@@ -35,13 +36,18 @@ import {
   deleteInvitadoService
 } from "../../services/citasServiceJuca";
 
-export default function Homeadm() {
+// IMPORTAMOS EL SERVICIO DE CAJONES
+import { filtrarCajonesService } from '../../services/cajonesService';
+
+export default function GestionarCitas() {
+  const navigation = useNavigation<any>();
+  
   // --- ESTADOS UI ---
   const qrContainerRef = useRef(null);
-  const [modalVisible, setModalVisible] = useState(false); // Editar Cita
-  const [deleteVisible, setDeleteVisible] = useState(false); // Eliminar Cita
-  const [showInvitadoModal, setShowInvitadoModal] = useState(false); // Gestionar Invitados
-  const [qrModalVisible, setQrModalVisible] = useState(false); // Ver QR
+  const [modalVisible, setModalVisible] = useState(false); 
+  const [deleteVisible, setDeleteVisible] = useState(false); 
+  const [showInvitadoModal, setShowInvitadoModal] = useState(false); 
+  const [qrModalVisible, setQrModalVisible] = useState(false); 
   
   const [menuVisible, setMenuVisible] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,8 +57,6 @@ export default function Homeadm() {
   const [selectedCita, setSelectedCita] = useState<any>(null);
   const [qrValue, setQrValue] = useState('');
   
-  // Referencias
-  const qrCodeRef = useRef<any>(null);
   const isFocused = useIsFocused();
 
   // --- FORMULARIO CITA (EDICIÓN) ---
@@ -62,6 +66,11 @@ export default function Homeadm() {
   const [hora, setHora] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [estadoCita, setEstadoCita] = useState('');
+
+  // --- NUEVOS ESTADOS PARA CAJONES (EDICIÓN) ---
+  const [cajones, setCajones] = useState<any[]>([]);
+  const [idCajon, setIdCajon] = useState(''); 
+  const [loadingCajones, setLoadingCajones] = useState(false);
   
   // --- FORMULARIO INVITADOS ---
   const [invitadosList, setInvitadosList] = useState<any[]>([]);
@@ -70,7 +79,8 @@ export default function Homeadm() {
     nombre: '', 
     correo: '', 
     empresa: '', 
-    tipo_visitante: ''
+    tipo_visitante: '',
+    matricula: '' 
   });
 
   // --- PICKERS ---
@@ -85,20 +95,16 @@ export default function Homeadm() {
     Inter: require('../../assets/fonts/Inter/Inter_28pt-Regular.ttf'),
   });
 
-  // --- EFECTOS ---
   useEffect(() => {
     if (isFocused) cargarCitas();
   }, [isFocused]);
 
-  // --- HELPERS PARA FECHAS (CORRECCIÓN) ---
-  // Convierten el string 'YYYY-MM-DD' a objeto Date para que el picker se abra en la fecha correcta
   const getDateFromString = (dateStr: string) => {
     if (!dateStr) return new Date();
     const [year, month, day] = dateStr.split('-').map(Number);
     return new Date(year, month - 1, day);
   };
 
-  // Convierten 'HH:MM' a objeto Date
   const getTimeFromString = (timeStr: string) => {
     if (!timeStr) return new Date();
     const [hours, minutes] = timeStr.split(':').map(Number);
@@ -108,8 +114,31 @@ export default function Homeadm() {
     return date;
   };
 
-  // --- FUNCIONES PRINCIPALES ---
+  // --- CONSULTAR CAJONES PARA EDICIÓN ---
+  const consultarCajonesEdicion = async () => {
+    if (!fecha || !fechaFin || !hora || !horaFin) {
+        Alert.alert("Atención", "Asegúrate de que las fechas y horas estén definidas antes de buscar cajones.");
+        return;
+    }
+    setLoadingCajones(true);
+    try {
+        const data = await filtrarCajonesService({ 
+            fecha_inicio: fecha, 
+            fecha_fin: fechaFin, 
+            hora_inicio: hora, 
+            hora_fin: horaFin,
+            id_cita: selectedCita.id 
+        });
+        setCajones(data);
+        if (data.length === 0) Alert.alert("Aviso", "No hay cajones disponibles en ese horario.");
+    } catch (error) {
+        Alert.alert("Error", "No se pudieron cargar los cajones.");
+    } finally {
+        setLoadingCajones(false);
+    }
+  };
 
+  // 🟢 TRAE ABSOLUTAMENTE TODAS LAS CITAS REGISTRADAS
   const cargarCitas = async () => {
     setLoading(true);
     try {
@@ -133,6 +162,8 @@ export default function Homeadm() {
       setHora(cita.hora_inicio || '');
       setHoraFin(cita.hora_fin || '');
       setEstadoCita(cita.estado_cita || 'Confirmada');
+      setIdCajon(cita.id_cajon?.toString() || ''); 
+      setCajones([]); 
       setModalVisible(true);
     }
 
@@ -154,7 +185,7 @@ export default function Homeadm() {
         try {
             const invitados = await getInvitadosByCitaService(cita.id);
             setInvitadosList(invitados);
-            setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '' });
+            setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
             setCurrentInvitado(null);
             setShowInvitadoModal(true);
         } catch (error) {
@@ -165,11 +196,9 @@ export default function Homeadm() {
     }
   };
 
-  // --- GESTIÓN DE CITA (EDICIÓN/ELIMINACIÓN) ---
-
   const guardarEdicionCita = async () => {
     if (!titulo || !fecha || !fechaFin || !hora || !horaFin) {
-      Alert.alert("Error", "Todos los campos de la cita son obligatorios");
+      Alert.alert("Error", "Todos los campos básicos de la cita son obligatorios");
       return;
     }
 
@@ -181,6 +210,7 @@ export default function Homeadm() {
       motivo: titulo,
       estado_cita: estadoCita,
       numero_invitados: selectedCita.numero_invitados,
+      id_cajon: idCajon || null 
     };
 
     const result = await updateCitaService(selectedCita.id, dataToSend);
@@ -188,7 +218,7 @@ export default function Homeadm() {
     if (result.message && !result.message.toLowerCase().includes('actualizada')) {
         Alert.alert("Error", result.message);
     } else {
-        Alert.alert("Éxito", "Cita actualizada correctamente");
+        Alert.alert("¡Éxito!", "Cita actualizada correctamente");
         setModalVisible(false);
         cargarCitas();
     }
@@ -201,10 +231,8 @@ export default function Homeadm() {
     cargarCitas();
   };
 
-  // --- GESTIÓN DE INVITADOS (CRUD INDIVIDUAL) ---
-
   const handleSaveInvitado = async () => {
-      if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim()) {
+      if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim() || !formInvitado.matricula.trim()) {
           Alert.alert("Datos incompletos", "Todos los campos son obligatorios.");
           return;
       }
@@ -220,19 +248,19 @@ export default function Homeadm() {
                   ...formInvitado, 
                   id_cita: selectedCita.id 
               });
-              Alert.alert("Éxito", "Invitado actualizado");
+              Alert.alert("¡Éxito!", "Invitado actualizado");
           } else {
               await registrarInvitadoService({ 
                   ...formInvitado, 
                   id_cita: selectedCita.id 
               });
-              Alert.alert("Éxito", "Invitado agregado");
+              Alert.alert("¡Éxito!", "Invitado agregado");
           }
           
           const updatedList = await getInvitadosByCitaService(selectedCita.id);
           setInvitadosList(updatedList);
           
-          setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '' });
+          setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
           setCurrentInvitado(null);
           cargarCitas(); 
 
@@ -247,13 +275,14 @@ export default function Homeadm() {
           nombre: inv.nombre,
           correo: inv.correo,
           empresa: inv.empresa || '',
-          tipo_visitante: inv.tipo_visitante || ''
+          tipo_visitante: inv.tipo_visitante || '',
+          matricula: inv.matricula || ''
       });
   };
 
   const handleCancelEditInvitado = () => {
       setCurrentInvitado(null);
-      setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '' });
+      setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
   };
 
   const handleDeleteInvitado = async (idInv: number) => {
@@ -262,7 +291,7 @@ export default function Homeadm() {
           { text: "Eliminar", style: 'destructive', onPress: async () => {
               try {
                   await deleteInvitadoService(idInv);
-                  Alert.alert("Éxito", "Invitado eliminado correctamente");
+                  Alert.alert("¡Éxito!", "Invitado eliminado correctamente");
                   const updatedList = await getInvitadosByCitaService(selectedCita.id);
                   setInvitadosList(updatedList);
                   cargarCitas();
@@ -271,95 +300,82 @@ export default function Homeadm() {
       ]);
   };
 
-// --- PROCESAR QR (Captura el QR + Texto para compartir o descargar) ---
-const procesarQR = (modo: 'compartir' | 'guardar') => {
-    if (!selectedCita || !qrContainerRef.current) return; // Usamos la nueva ref
-
+  const procesarQR = (modo: 'compartir' | 'guardar') => {
+    if (!selectedCita || !qrContainerRef.current) return;
     const citaId = selectedCita.id;
-    
-    // 1. Capturar la vista (QR + Texto del ID) como URI temporal
-    captureRef(qrContainerRef, {
-        format: 'png',
-        quality: 1.0,
-        result: 'base64', // Capturamos como Base64 para escribir el archivo
-        height: 250, // Ajusta la altura si es necesario para capturar el texto
-    }).then(async (data) => {
-        
-        // Generar nombre de archivo ÚNICO (incluyendo el ID de la cita)
+    captureRef(qrContainerRef, { format: 'png', quality: 1.0, result: 'base64', height: 250 }).then(async (data) => {
         const filenameUnique = `qr_ecoparking_cita_${citaId}.png`;
         const fileUri = FileSystem.cacheDirectory + filenameUnique;
-
         try {
-            // Guardar en la caché de Expo (El data ya es el base64 de la imagen completa)
             await FileSystem.writeAsStringAsync(fileUri, data, { encoding: 'base64' });
-
             if (modo === 'compartir') {
                 await Sharing.shareAsync(fileUri, { mimeType: 'image/png', dialogTitle: 'Compartir Código QR' });
             } else if (modo === 'guardar') {
-                // Pedir Permisos y Guardar en Galería (MediaLibrary)
                 const { status } = await MediaLibrary.requestPermissionsAsync();
-                
                 if (status === 'granted') {
                     await MediaLibrary.saveToLibraryAsync(fileUri);
                     Alert.alert("¡Descarga Exitosa!", `El código QR se guardó en la galería.`);
                 } else {
-                    Alert.alert("Permiso Denegado", "Se necesita permiso para acceder a la galería y guardar el código QR.");
+                    Alert.alert("Permiso Denegado", "Se necesita permiso para acceder a la galería.");
                 }
             }
-        } catch (err: any) {
-            console.error("Error al procesar/guardar QR:", err);
-            Alert.alert("Error", "No se pudo guardar el QR, intenta de nuevo o compártelo.");
-        }
-    }).catch(error => {
-        console.error("Error al capturar la vista:", error);
-        Alert.alert("Error", "No se pudo generar la imagen para exportar.");
-    });
-};
+        } catch (err: any) { Alert.alert("Error", "No se pudo procesar el QR."); }
+    }).catch(error => { Alert.alert("Error", "No se pudo generar la imagen."); });
+  };
 
   if (!fontsLoaded) return null;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FDFEFE' }}>
-      <HeaderAdmin title="Mis Citas" />
+      <HeaderJucas title="Administrar Sistema" />
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
-        <Text style={styles.sectionTitle}>Gestión Citas</Text>
+        <Text style={styles.sectionTitle}>Panel General de Citas</Text>
 
         {loading && !showInvitadoModal ? (
              <ActivityIndicator size="large" color="#6C9A8B" style={{marginTop: 50}} />
         ) : (
-            citas.map((cita) => (
-            <View key={cita.id} style={[styles.card, { zIndex: menuVisible === cita.id ? 1000 : 1 }]}>
-                <View style={styles.cardContent}>
-                <MaterialIcons name="event-note" size={36} color="#3498DB" style={{ marginRight: 10 }} />
-                <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>#{cita.id} - {cita.motivo}</Text>
-                    <Text style={styles.cardDesc}>Invitados: {cita.numero_invitados}</Text>
-                    <Text style={styles.cardInfo}>📅 {cita.fecha_inicio?.split("T")[0]}   ⏰ {cita.hora_inicio}</Text>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: cita.estado_cita === 'Confirmada' ? '#27AE60' : '#E74C3C' }}>{cita.estado_cita}</Text>
-                </View>
-                <TouchableOpacity onPress={() => setMenuVisible(menuVisible === cita.id ? null : cita.id)} style={{ padding: 10 }}>
-                    <MaterialIcons name="more-vert" size={24} color="#2E4053" />
-                </TouchableOpacity>
-                </View>
-
-                {menuVisible === cita.id && (
-                <View style={styles.overlayMenu}>
-                    <View style={styles.menuBox}>
-                    <TouchableOpacity onPress={() => handleAction("editar", cita)}><Text style={styles.menuItem}>Editar cita</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleAction("invitados", cita)}><Text style={styles.menuItem}>Ver invitados</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleAction("qr", cita)}><Text style={styles.menuItem}>Mostrar QR</Text></TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleAction("eliminar", cita)}><Text style={[styles.menuItem, { color: "#E74C3C" }]}>Eliminar Cita</Text></TouchableOpacity>
+             citas.length > 0 ? (
+                citas.map((cita) => (
+                <View key={cita.id} style={[styles.card, { zIndex: menuVisible === cita.id ? 1000 : 1 }]}>
+                    <View style={styles.cardContent}>
+                    <MaterialIcons name="event-note" size={36} color="#3498DB" style={{ marginRight: 10 }} />
+                    <View style={{ flex: 1 }}>
+                        <Text style={styles.cardTitle}>#{cita.id} - {cita.motivo}</Text>
+                        <Text style={styles.cardDesc}>Invitados: {cita.numero_invitados}</Text>
+                        <Text style={styles.cardInfo}>📅 {cita.fecha_inicio?.split("T")[0]}   ⏰ {cita.hora_inicio}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: 'bold', color: cita.estado_cita === 'Confirmada' ? '#27AE60' : '#E74C3C' }}>{cita.estado_cita}</Text>
                     </View>
+                    <TouchableOpacity onPress={() => setMenuVisible(menuVisible === cita.id ? null : cita.id)} style={{ padding: 10 }}>
+                        <MaterialIcons name="more-vert" size={24} color="#2E4053" />
+                    </TouchableOpacity>
+                    </View>
+
+                    {menuVisible === cita.id && (
+                    <View style={styles.overlayMenu}>
+                        <View style={styles.menuBox}>
+                        <TouchableOpacity onPress={() => handleAction("editar", cita)}><Text style={styles.menuItem}>Editar cita</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleAction("invitados", cita)}><Text style={styles.menuItem}>Ver invitados</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleAction("qr", cita)}><Text style={styles.menuItem}>Mostrar QR</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => handleAction("eliminar", cita)}><Text style={[styles.menuItem, { color: "#E74C3C" }]}>Eliminar Cita</Text></TouchableOpacity>
+                        </View>
+                    </View>
+                    )}
                 </View>
-                )}
-            </View>
-            ))
+                ))
+             ) : (
+                <View style={styles.emptyContainer}>
+                    <Text style={styles.emptyText}>No hay ninguna cita registrada en la plataforma.</Text>
+                    <TouchableOpacity style={styles.emptyButton} onPress={() => navigation.navigate('citasJucas')}>
+                        <MaterialIcons name="add-circle-outline" size={24} color="#FFF" />
+                        <Text style={styles.emptyButtonText}>Crear una Cita</Text>
+                    </TouchableOpacity>
+                </View>
+             )
         )}
-        {citas.length === 0 && !loading && <Text style={{textAlign: 'center', marginTop: 20, color: '#888'}}>No hay citas registradas.</Text>}
       </ScrollView>
 
-      {/* MODAL EDITAR CITA */}
+      {/* --- MODAL EDITAR CITA --- */}
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalContainer}>
           <View style={styles.modalBox}>
@@ -379,7 +395,6 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
                     <Text>{fechaFin || "Seleccionar fecha fin"}</Text>
                 </TouchableOpacity>
                 
-                {/* Estado (Switch) */}
                 <Text style={styles.label}>Estado</Text>
                 <View style={{ flexDirection: 'row', gap: 10 }}>
                     <TouchableOpacity onPress={() => setEstadoCita('Confirmada')} style={[styles.stateButton, estadoCita === 'Confirmada' ? styles.stateActiveGreen : styles.stateInactive]}><Text style={[styles.stateText, estadoCita === 'Confirmada' && {color: 'white'}]}>Confirmada</Text></TouchableOpacity>
@@ -401,48 +416,38 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
                      </View>
                 </View>
 
-                {/* PICKERS CORREGIDOS: SI EL USUARIO CANCELA (NO DATA), NO SE CAMBIA EL ESTADO */}
+                {/* BOTÓN Y SELECTOR DE CAJONES */}
+                <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 15}]} onPress={consultarCajonesEdicion}>
+                    <Text style={{color: '#FFF', fontWeight: 'bold'}}>Ver Cajones Disponibles</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.label}>Seleccionar Cajón</Text>
+                {loadingCajones ? <ActivityIndicator size="small" color="#6C9A8B" /> : (
+                  <View style={[styles.input, {padding: 0}]}>
+                    <Picker
+                        selectedValue={idCajon}
+                        onValueChange={(val) => setIdCajon(val)}
+                    >
+                        <Picker.Item label="-- Sin Cajón --" value="" />
+                        {cajones.map(c => (
+                            <Picker.Item key={c.id} label={`Cajón ${c.numero_cajon}`} value={c.id} />
+                        ))}
+                    </Picker>
+                  </View>
+                )}
+
+                {/* PICKERS OCULTOS */}
                 {showFechaPicker && (
-                    <DateTimePicker 
-                        mode="date" 
-                        value={getDateFromString(fecha)} 
-                        onChange={(e, d) => { 
-                            setShowFechaPicker(false); 
-                            if (e.type === 'set' && d) setFecha(d.toISOString().split("T")[0]); 
-                        }} 
-                    />
+                    <DateTimePicker mode="date" value={getDateFromString(fecha)} onChange={(e, d) => { setShowFechaPicker(false); if (e.type === 'set' && d) setFecha(d.toISOString().split("T")[0]); }} />
                 )}
                 {showFechaFinPicker && (
-                    <DateTimePicker 
-                        mode="date" 
-                        value={getDateFromString(fechaFin)} 
-                        onChange={(e, d) => { 
-                            setShowFechaFinPicker(false); 
-                            if (e.type === 'set' && d) setFechaFin(d.toISOString().split("T")[0]); 
-                        }} 
-                    />
+                    <DateTimePicker mode="date" value={getDateFromString(fechaFin)} onChange={(e, d) => { setShowFechaFinPicker(false); if (e.type === 'set' && d) setFechaFin(d.toISOString().split("T")[0]); }} />
                 )}
                 {showHoraPicker && (
-                    <DateTimePicker 
-                        mode="time" 
-                        value={getTimeFromString(hora)} 
-                        is24Hour={true} 
-                        onChange={(e, t) => { 
-                            setShowHoraPicker(false); 
-                            if (e.type === 'set' && t) setHora(t.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', hour12: false})); 
-                        }} 
-                    />
+                    <DateTimePicker mode="time" value={getTimeFromString(hora)} is24Hour={true} onChange={(e, t) => { setShowHoraPicker(false); if (e.type === 'set' && t) setHora(t.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', hour12: false})); }} />
                 )}
                 {showHoraFinPicker && (
-                    <DateTimePicker 
-                        mode="time" 
-                        value={getTimeFromString(horaFin)} 
-                        is24Hour={true} 
-                        onChange={(e, t) => { 
-                            setShowHoraFinPicker(false); 
-                            if (e.type === 'set' && t) setHoraFin(t.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', hour12: false})); 
-                        }} 
-                    />
+                    <DateTimePicker mode="time" value={getTimeFromString(horaFin)} is24Hour={true} onChange={(e, t) => { setShowHoraFinPicker(false); if (e.type === 'set' && t) setHoraFin(t.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', hour12: false})); }} />
                 )}
                 
                 <View style={styles.modalButtons}>
@@ -458,7 +463,7 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
         </View>
       </Modal>
 
-      {/* MODAL GESTIONAR INVITADOS */}
+      {/* --- MODAL GESTIONAR INVITADOS --- */}
       <Modal visible={showInvitadoModal} transparent animationType="slide">
         <View style={styles.modalContainer}>
             <View style={[styles.modalBox, {height: '85%'}]}>
@@ -469,14 +474,32 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
 
                 <View style={{backgroundColor: '#F8F9F9', padding: 10, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#EEE'}}>
                     <Text style={{fontFamily: 'Inter', fontSize: 12, color: '#888', marginBottom: 5}}>{currentInvitado ? 'EDITAR INVITADO' : 'AGREGAR NUEVO INVITADO'}</Text>
+                    
                     <View style={{flexDirection: 'row', gap: 5, marginBottom: 5}}>
                         <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Nombre" value={formInvitado.nombre} onChangeText={(t) => setFormInvitado({...formInvitado, nombre: t})} />
-                        <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Correo" value={formInvitado.correo} onChangeText={(t) => setFormInvitado({...formInvitado, correo: t})} autoCapitalize="none" />
+                        <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Correo" value={formInvitado.correo} onChangeText={(t) => setFormInvitado({...formInvitado, correo: t})} autoCapitalize="none" keyboardType="email-address" />
                     </View>
-                    <View style={{flexDirection: 'row', gap: 5}}>
+                    
+                    <View style={{flexDirection: 'row', gap: 5, marginBottom: 5}}>
                         <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Empresa" value={formInvitado.empresa} onChangeText={(t) => setFormInvitado({...formInvitado, empresa: t})} />
                         <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Tipo" value={formInvitado.tipo_visitante} onChangeText={(t) => setFormInvitado({...formInvitado, tipo_visitante: t})} />
                     </View>
+
+                    {/* CAMPO DE MATRÍCULA CON ESPACIO AUTOMÁTICO A GUION Y MÁXIMO DE 9 CARACTERES */}
+                    <View style={{flexDirection: 'row', gap: 5}}>
+                        <TextInput 
+                            style={[styles.input, {flex: 1, marginBottom: 0}]} 
+                            placeholder="Matrícula (Ej. UKL-247-K)" 
+                            value={formInvitado.matricula} 
+                            maxLength={9} 
+                            onChangeText={(t) => setFormInvitado({
+                                ...formInvitado, 
+                                matricula: t.replace(/ /g, '-').replace(/[^A-Za-z0-9-]/g, '').toUpperCase() 
+                            })} 
+                            autoCapitalize="characters" 
+                        />
+                    </View>
+
                     <View style={{flexDirection: 'row', gap: 10, marginTop: 10}}>
                         <TouchableOpacity style={[styles.button, {marginTop: 0, flex: 1, backgroundColor: currentInvitado ? '#F39C12' : '#3498DB'}]} onPress={handleSaveInvitado}>
                             <Text style={styles.buttonText}>{currentInvitado ? 'Actualizar' : 'Agregar'}</Text>
@@ -497,7 +520,7 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
                             <View key={inv.id} style={styles.guestItem}>
                                 <View style={{flex: 1}}>
                                     <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
-                                    <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa}</Text>
+                                    <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa} {inv.matricula ? `• Matrícula: ${inv.matricula}` : ''}</Text>
                                 </View>
                                 <View style={{flexDirection: 'row', gap: 10}}>
                                     <TouchableOpacity onPress={() => handleEditInvitado(inv)} style={{padding: 5}}><MaterialIcons name="edit" size={22} color="#F39C12" /></TouchableOpacity>
@@ -534,25 +557,12 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
         <View style={styles.modalContainer}>
           <View style={[styles.modalBox, { alignItems: 'center', paddingVertical: 25 }]}>
             <Text style={[styles.modalTitle, {marginBottom: 20}]}>Código QR</Text>
-            {/* VIEW CONTENEDORA QUE SERÁ CAPTURADA */}
             <View ref={qrContainerRef} collapsable={false} style={{ alignItems: 'center', padding: 10, backgroundColor: 'white' }}> 
-              {/* 1. Código QR */}
               <View style={{ backgroundColor: 'white', padding: 15, borderRadius: 10 }}>
               {qrValue ? <QRCode value={qrValue} size={200} backgroundColor='white' quietZone={5} /> : <Text>Error</Text>}
               </View>
-                {/* 2. Texto del ID (se añade debajo del QR) */}
-                {selectedCita && <Text style={{
-                    fontFamily: 'Poppins-SemiBold', 
-                    fontSize: 14, 
-                    color: '#000000ff', 
-                    marginTop: 10,
-                    textAlign: 'center'
-                }}>
-                    Cita: #{selectedCita.id}
-                </Text>}
-                
+                {selectedCita && <Text style={{ fontFamily: 'Poppins-SemiBold', fontSize: 14, color: '#000000', marginTop: 10, textAlign: 'center' }}>Cita: #{selectedCita.id}</Text>}
             </View>
-            {/* FIN de la VIEW CONTENEDORA */}
             <View style={{width: '100%', marginTop: 25, gap: 12}}>
                 <TouchableOpacity onPress={() => procesarQR('compartir')} style={[styles.actionButton, { backgroundColor: '#3498DB' }]}><MaterialIcons name="share" size={24} color="#FFF" /><Text style={styles.actionButtonText}>Compartir</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => procesarQR('guardar')} style={[styles.actionButton, { backgroundColor: '#27AE60' }]}><MaterialIcons name="file-download" size={24} color="#FFF" /><Text style={styles.actionButtonText}>Descargar</Text></TouchableOpacity>
@@ -568,7 +578,6 @@ const procesarQR = (modo: 'compartir' | 'guardar') => {
 
 const styles = StyleSheet.create({
   container: { padding: 20 },
-  welcome: { color: '#2E4053', fontFamily: 'Poppins-SemiBold', fontSize: 22 },
   sectionTitle: { color: '#2E4053', fontFamily: 'Poppins', fontSize: 18, marginTop: 10, marginBottom: 20 },
   card: { backgroundColor: '#FFF', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#D5DBDB', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3, marginBottom: 15, position: 'relative' },
   cardContent: { flexDirection: 'row', alignItems: 'center' },
@@ -597,4 +606,9 @@ const styles = StyleSheet.create({
   guestDetails: { fontFamily: 'Inter', color: '#777', fontSize: 11, marginTop: 2 },
   actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, gap: 10, elevation: 2 },
   actionButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', fontFamily: 'Poppins-SemiBold' },
+  emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
+  emptyText: { color: '#888', fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  emptyButton: { flexDirection: 'row', backgroundColor: '#6C9A8B', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  emptyButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', marginLeft: 10, fontSize: 16 },
+  addBtn: { paddingVertical: 10, borderRadius: 8, marginTop: 10, alignItems: "center" }
 });

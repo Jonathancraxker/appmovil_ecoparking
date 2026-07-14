@@ -11,12 +11,14 @@ import {
   Platform
 } from 'react-native';
 
+import { Picker } from '@react-native-picker/picker'; // <--- IMPORTANTE: Asegúrate de tener instalado esta librería
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import { useFonts } from 'expo-font';
 import HeaderAdmin from '../../components/HeaderAdmin';
 import { registrarCitaService } from '../../services/citasServiceAdm';
+import { filtrarCajonesService } from '../../services/cajonesService'; // <--- IMPORTACIÓN NUEVA
 
 export default function CitasAdmin() {
 
@@ -27,11 +29,22 @@ export default function CitasAdmin() {
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFin, setHoraFin] = useState('');
   const [estado, setEstado] = useState('Confirmada'); 
+  
+  // NUEVOS ESTADOS PARA CAJONES
+  const [cajones, setCajones] = useState<any[]>([]);
+  const [idCajon, setIdCajon] = useState(''); 
+  const [loadingCajones, setLoadingCajones] = useState(false);
 
   // Campos Invitado
   const [invitados, setInvitados] = useState<any[]>([]);
-  // CORRECCIÓN: Inicializamos con todos los campos necesarios
-  const [nuevoInvitado, setNuevoInvitado] = useState({ nombre: '', correo: '', empresa: '', tipo_visitante: '' });
+  // CORRECCIÓN: Inicializamos con todos los campos necesarios, incluida la matricula
+  const [nuevoInvitado, setNuevoInvitado] = useState({ 
+    nombre: '', 
+    correo: '', 
+    empresa: '', 
+    tipo_visitante: '',
+    matricula: '' // NUEVO: Campo para la matricula del invitado
+  });
 
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +61,29 @@ export default function CitasAdmin() {
   });
 
   if (!fontsLoaded) return null;
+
+  // --- LÓGICA PARA CARGAR CAJONES ---
+  const consultarCajones = async () => {
+    if (!fechaInicio || !fechaFin || !horaInicio || !horaFin) {
+        Alert.alert("Atención", "Por favor selecciona primero las fechas y horas.");
+        return;
+    }
+    setLoadingCajones(true);
+    try {
+        const data = await filtrarCajonesService({ 
+            fecha_inicio: fechaInicio, 
+            fecha_fin: fechaFin, 
+            hora_inicio: horaInicio, 
+            hora_fin: horaFin 
+        });
+        setCajones(data);
+        if (data.length === 0) Alert.alert("Aviso", "No hay cajones disponibles en ese horario.");
+    } catch (error) {
+        Alert.alert("Error", "No se pudieron cargar los cajones.");
+    } finally {
+        setLoadingCajones(false);
+    }
+  };
 
   // --- LÓGICA PICKERS (CORREGIDA) ---
   const handleDateChange = (event: any, selectedDate?: Date, type?: 'fi' | 'ff') => {
@@ -83,9 +119,9 @@ export default function CitasAdmin() {
 
   // Agregar invitado a la lista local
   const agregarInvitado = () => {
-    // Validación completa de los 4 campos
-    if (!nuevoInvitado.nombre.trim() || !nuevoInvitado.correo.trim() || !nuevoInvitado.empresa.trim() || !nuevoInvitado.tipo_visitante.trim()) {
-      Alert.alert("Datos incompletos", "Por favor completa todos los campos del invitado (Nombre, Correo, Empresa, Tipo).");
+    // Validación completa (incluyendo matricula)
+    if (!nuevoInvitado.nombre.trim() || !nuevoInvitado.correo.trim() || !nuevoInvitado.empresa.trim() || !nuevoInvitado.tipo_visitante.trim() || !nuevoInvitado.matricula.trim()) {
+      Alert.alert("Datos incompletos", "Por favor completa todos los campos del invitado (Nombre, Correo, Empresa, Tipo, Matrícula).");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -94,10 +130,10 @@ export default function CitasAdmin() {
       return;
     }
 
-    // Agregamos al array local
+    // Agregamos al array local incluyendo la matricula
     setInvitados([...invitados, { ...nuevoInvitado }]);
-    // Limpiamos inputs
-    setNuevoInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '' });
+    // Limpiamos inputs reseteando también la matricula
+    setNuevoInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
   };
 
   // Eliminar invitado de la lista local
@@ -109,8 +145,8 @@ export default function CitasAdmin() {
 
   // Registrar Cita + Invitados
   const handleRegistrar = async () => {
-    if (!motivo || !fechaInicio || !fechaFin || !horaInicio || !horaFin) {
-      Alert.alert('Error', 'Por favor completa todos los campos de la cita.');
+    if (!motivo || !idCajon || !fechaInicio) {
+      Alert.alert('Error', 'Por favor completa el motivo, selecciona un cajón y fechas.');
       return;
     }
 
@@ -122,7 +158,8 @@ export default function CitasAdmin() {
       hora_fin: horaFin,
       estado_cita: estado,
       numero_invitados: invitados.length,
-      invitados: invitados 
+      invitados: invitados,
+      id_cajon: idCajon // Enviamos el cajón seleccionado
     };
 
     try {
@@ -141,7 +178,7 @@ export default function CitasAdmin() {
       setHoraInicio('');
       setHoraFin('');
       setInvitados([]);
-      setNuevoInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '' });
+      setNuevoInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
 
     } catch (error: any) {
       console.log(error);
@@ -205,68 +242,68 @@ export default function CitasAdmin() {
 
           {/* PICKERS (Controlados) */}
           {showFechaInicioPicker && (
-            <DateTimePicker
-              mode="date" value={new Date()}
-              onChange={(e, d) => handleDateChange(e, d, 'fi')}
-            />
+            <DateTimePicker mode="date" value={new Date()} onChange={(e, d) => handleDateChange(e, d, 'fi')} />
           )}
           {showFechaFinPicker && (
-            <DateTimePicker
-              mode="date" value={new Date()}
-              onChange={(e, d) => handleDateChange(e, d, 'ff')}
-            />
+            <DateTimePicker mode="date" value={new Date()} onChange={(e, d) => handleDateChange(e, d, 'ff')} />
           )}
           {showHoraInicioPicker && (
-            <DateTimePicker
-              mode="time" value={new Date()} is24Hour={true}
-              onChange={(e, t) => handleTimeChange(e, t, 'hi')}
-            />
+            <DateTimePicker mode="time" value={new Date()} is24Hour={true} onChange={(e, t) => handleTimeChange(e, t, 'hi')} />
           )}
           {showHoraFinPicker && (
-            <DateTimePicker
-              mode="time" value={new Date()} is24Hour={true}
-              onChange={(e, t) => handleTimeChange(e, t, 'hf')}
-            />
+            <DateTimePicker mode="time" value={new Date()} is24Hour={true} onChange={(e, t) => handleTimeChange(e, t, 'hf')} />
+          )}
+
+          {/* BOTÓN PARA CONSULTAR CAJONES */}
+          <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 15}]} onPress={consultarCajones}>
+              <Text style={{color: '#FFF', fontWeight: 'bold'}}>Ver Cajones Disponibles</Text>
+          </TouchableOpacity>
+
+          {/* PICKER DE CAJONES */}
+          <Text style={styles.label}>Seleccionar Cajón</Text>
+          {loadingCajones ? <ActivityIndicator size="small" color="#6C9A8B" /> : (
+            <View style={[styles.input, {padding: 0}]}>
+              <Picker
+                  selectedValue={idCajon}
+                  onValueChange={(val) => setIdCajon(val)}
+              >
+                  <Picker.Item label="-- Seleccione un cajón --" value="" />
+                  {cajones.map(c => (
+                      <Picker.Item key={c.id} label={`Cajón ${c.numero_cajon}`} value={c.id} />
+                  ))}
+              </Picker>
+            </View>
           )}
 
           {/* --- SECCIÓN INVITADOS --- */}
           <Text style={[styles.label, { marginTop: 20, fontSize: 16, color: '#6C9A8B', borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 10 }]}>Agregar Invitados</Text>
           
-          {/* Fila 1: Nombre y Correo */}
           <View style={styles.invBox}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Nombre"
-              placeholderTextColor="#AAB7B8"
-              value={nuevoInvitado.nombre}
-              onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, nombre: t })}
-            />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Correo"
-              placeholderTextColor="#AAB7B8"
-              value={nuevoInvitado.correo}
-              onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, correo: t })}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
+            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Nombre" placeholderTextColor="#AAB7B8" value={nuevoInvitado.nombre} onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, nombre: t })} />
+            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Correo" placeholderTextColor="#AAB7B8" value={nuevoInvitado.correo} onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, correo: t })} autoCapitalize="none" keyboardType="email-address" />
           </View>
 
-          {/* Fila 2: Empresa y Tipo (NUEVOS CAMPOS) */}
           <View style={[styles.invBox, {marginTop: 5}]}>
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Empresa"
-              placeholderTextColor="#AAB7B8"
-              value={nuevoInvitado.empresa}
-              onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, empresa: t })}
-            />
-            <TextInput
-              style={[styles.input, { flex: 1 }]}
-              placeholder="Tipo (Ej. Proveedor)"
-              placeholderTextColor="#AAB7B8"
-              value={nuevoInvitado.tipo_visitante}
-              onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, tipo_visitante: t })}
+            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Empresa" placeholderTextColor="#AAB7B8" value={nuevoInvitado.empresa} onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, empresa: t })} />
+            <TextInput style={[styles.input, { flex: 1 }]} placeholder="Tipo (Ej. Proveedor)" placeholderTextColor="#AAB7B8" value={nuevoInvitado.tipo_visitante} onChangeText={(t) => setNuevoInvitado({ ...nuevoInvitado, tipo_visitante: t })} />
+          </View>
+
+          {/* Fila 3: Matrícula (CON CONVERSIÓN DE ESPACIO A GUION) */}
+          <View style={[styles.invBox, {marginTop: 5}]}>
+            <TextInput 
+              style={[styles.input, { flex: 1 }]} 
+              placeholder="Matrícula (Ej. UKL-247-K)" 
+              placeholderTextColor="#AAB7B8" 
+              value={nuevoInvitado.matricula} 
+              maxLength={9} 
+              onChangeText={(t) => setNuevoInvitado({ 
+                  ...nuevoInvitado, 
+                  // 1. Convierte espacios en guiones
+                  // 2. Elimina cualquier otro símbolo
+                  // 3. Lo pasa a mayúsculas
+                  matricula: t.replace(/ /g, '-').replace(/[^A-Za-z0-9-]/g, '').toUpperCase() 
+              })} 
+              autoCapitalize="characters" 
             />
           </View>
 
@@ -274,7 +311,7 @@ export default function CitasAdmin() {
             <Text style={[styles.buttonText, {fontSize: 14}]}>+ Añadir a la lista</Text>
           </TouchableOpacity>
 
-          {/* Lista de invitados agregados */}
+          {/* Lista de invitados */}
           <View style={{marginTop: 10}}>
               {invitados.length > 0 ? (
                   invitados.map((inv, idx) => (
@@ -284,7 +321,7 @@ export default function CitasAdmin() {
                                 {idx + 1}. {inv.nombre} <Text style={{fontWeight: 'normal', fontFamily: 'Inter', fontSize: 12}}>({inv.tipo_visitante})</Text>
                             </Text>
                             <Text style={{fontFamily: 'Inter', color: '#777', fontSize: 11}}>
-                                {inv.correo} • {inv.empresa}
+                                {inv.correo} • {inv.empresa} • Matrícula: {inv.matricula}
                             </Text>
                         </View>
                         <TouchableOpacity onPress={() => eliminarInvitadoLocal(idx)} style={{padding: 5}}>
@@ -298,16 +335,8 @@ export default function CitasAdmin() {
           </View>
 
           {/* Botón Registrar */}
-          <TouchableOpacity
-            style={styles.button}
-            onPress={handleRegistrar}
-            disabled={loading}
-          >
-            {loading ? (
-                 <ActivityIndicator color="#FFF" />
-            ) : (
-                 <Text style={styles.buttonText}>GUARDAR CITA</Text>
-            )}
+          <TouchableOpacity style={styles.button} onPress={handleRegistrar} disabled={loading}>
+            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.buttonText}>GUARDAR CITA</Text>}
           </TouchableOpacity>
 
         </View>
@@ -318,65 +347,65 @@ export default function CitasAdmin() {
 
 const styles = StyleSheet.create({
   container: { alignItems: 'center', paddingTop: 20, paddingBottom: 60 },
-  title: {
+  title: { 
     fontFamily: 'Poppins-SemiBold',
-    fontSize: 22,
-    color: '#2E4053',
-    marginBottom: 15,
+    fontSize: 22, 
+    color: '#2E4053', 
+    marginBottom: 15 
   },
-  card: {
-    width: '90%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    borderColor: '#AAB7B8',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
+  card: { 
+    width: '90%', 
+    backgroundColor: '#FFFFFF', 
+    borderRadius: 16, 
+    padding: 20, 
+    borderColor: '#AAB7B8', 
+    borderWidth: 1, 
+    shadowColor: '#000', 
+    shadowOpacity: 0.1, 
+    shadowRadius: 6, 
+    elevation: 3 
   },
-  label: {
-    fontFamily: 'Inter',
-    color: '#2E4053',
-    marginTop: 10,
-    marginBottom: 4,
-    fontSize: 14,
+  label: { 
+    fontFamily: 'Inter', 
+    color: '#2E4053', 
+    marginTop: 10, 
+    marginBottom: 4, 
+    fontSize: 14 
   },
-  input: {
-    backgroundColor: '#FDFEFE',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 44,
-    borderColor: '#AAB7B8',
-    borderWidth: 1,
-    fontFamily: 'Inter',
-    fontSize: 14,
-    color: '#2E4053',
-    justifyContent: "center",
+  input: { 
+    backgroundColor: '#FDFEFE', 
+    borderRadius: 8, 
+    paddingHorizontal: 12, 
+    height: 44, 
+    borderColor: '#AAB7B8', 
+    borderWidth: 1, 
+    fontFamily: 'Inter', 
+    fontSize: 14, 
+    color: '#2E4053', 
+    justifyContent: "center" 
   },
-  invBox: {
-    flexDirection: "row",
-    gap: 8,
+  invBox: { 
+    flexDirection: "row", 
+    gap: 8 
   },
-  addBtn: {
+  addBtn: { 
     backgroundColor: '#34495E', 
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginTop: 10,
-    alignItems: "center",
+    paddingVertical: 10, 
+    borderRadius: 8, 
+    marginTop: 10, 
+    alignItems: "center" 
   },
-  button: {
-    backgroundColor: '#6C9A8B',
-    borderRadius: 10,
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 25,
+  button: { 
+    backgroundColor: '#6C9A8B', 
+    borderRadius: 10, 
+    alignItems: 'center', 
+    paddingVertical: 14, 
+    marginTop: 25 
   },
-  buttonText: {
-    color: '#FDFEFE',
-    fontFamily: 'Poppins',
-    fontWeight: '600',
-    fontSize: 16,
+  buttonText: { 
+    color: '#FDFEFE', 
+    fontFamily: 'Poppins', 
+    fontWeight: '600', 
+    fontSize: 16 
   },
 });

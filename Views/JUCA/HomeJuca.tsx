@@ -1,10 +1,10 @@
 // Views/HomeScreen.tsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFonts } from 'expo-font';
-import HeaderJucas from '../../components/HeaderJucas';
 import { useNavigation } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import React from 'react';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import HeaderJucas from '../../components/HeaderJucas';
 
 export default function HomeScreen() {
   const navigation = useNavigation();
@@ -32,6 +32,16 @@ export default function HomeScreen() {
           >
             <MaterialIcons name="calendar-today" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Citas</Text>
+            <Text style={styles.cardDesc}>Gestiona tus citas y horarios</Text>
+          </TouchableOpacity>
+
+          {/* 🔹 Ir a Gestionar Citas */}
+          <TouchableOpacity
+            style={styles.card}
+            onPress={() => navigation.navigate('gestionarCitasJuca')}
+          >
+            <MaterialIcons name="calendar-today" size={40} color="#6C9A8B" />
+            <Text style={styles.cardTitle}>Mis Citas</Text>
             <Text style={styles.cardDesc}>Gestiona tus citas y horarios</Text>
           </TouchableOpacity>
 

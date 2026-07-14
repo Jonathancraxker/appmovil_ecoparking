@@ -93,6 +93,22 @@ export const getInvitadosByCitaService = async (idCita: number) => {
   }
 };
 
+// OBTENER SOLO LAS CITAS DEL USUARIO (JUCA) AUTENTICADO
+export const getMisCitasJucaService = async () => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    if (!token) return [];
+
+    api.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    // ESTE ENDPOINT ES LA CLAVE: Solo trae las citas del usuario actual
+    const response = await api.get("/citas/mis-citas"); 
+    return response.data;
+  } catch (error: any) {
+    console.log("❌ Error getMisCitasJucaService:", error.response?.data || error);
+    return [];
+  }
+};
+
 // Registrar nuevo invitado (POST)
 export const registrarInvitadoService = async (data: any) => {
   try {
