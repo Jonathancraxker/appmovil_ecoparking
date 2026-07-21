@@ -9,13 +9,14 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Platform
+  Platform,
+  Switch
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import QRCode from 'react-native-qrcode-svg';
-import { Picker } from '@react-native-picker/picker'; // <--- IMPORTANTE: Picker para Cajones
+import { Picker } from '@react-native-picker/picker'; 
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 // Importaciones de Expo
@@ -69,7 +70,6 @@ export default function CitasJuca() {
 
   // --- NUEVOS ESTADOS PARA CAJONES (EDICIÓN) ---
   const [cajones, setCajones] = useState<any[]>([]);
-  const [idCajon, setIdCajon] = useState(''); 
   const [loadingCajones, setLoadingCajones] = useState(false);
   
   // --- FORMULARIO INVITADOS ---
@@ -80,14 +80,16 @@ export default function CitasJuca() {
     correo: '', 
     empresa: '', 
     tipo_visitante: '',
-    matricula: '' // Campo de matrícula
+    matricula: '',
+    id_cajon: '' 
   });
 
-  // --- PICKERS ---
+  // --- PICKERS Y SWITCHES ---
   const [showFechaPicker, setShowFechaPicker] = useState(false);
-  const [showFechaFinPicker, setShowFechaFinPicker] = useState(false);
   const [showHoraPicker, setShowHoraPicker] = useState(false);
   const [showHoraFinPicker, setShowHoraFinPicker] = useState(false);
+  const [traeVehiculo, setTraeVehiculo] = useState(true);
+  const [conductorSeleccionado, setConductorSeleccionado] = useState('');
 
   const [fontsLoaded] = useFonts({
     Poppins: require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
@@ -114,23 +116,39 @@ export default function CitasJuca() {
     return date;
   };
 
+  // --- 🟢 LÓGICA INTELIGENTE: Identificar Conductores Únicos ---
+  const conductoresUnicos: any[] = [];
+  const cajonesVistos = new Set();
+  invitadosList.forEach(inv => {
+      if (inv.id_cajon && !cajonesVistos.has(inv.id_cajon)) {
+          cajonesVistos.add(inv.id_cajon);
+          conductoresUnicos.push(inv);
+      }
+  });
+
+  // --- 🟢 FILTRO INTELIGENTE DE CAJONES LOCALES ---
+  const cajonesDisponiblesLocales = cajones.filter(cajonBD => {
+      if (currentInvitado && String(cajonBD.id) === String(currentInvitado.id_cajon)) {
+          return true;
+      }
+      const ocupado = invitadosList.some(inv => String(inv.id_cajon) === String(cajonBD.id));
+      return !ocupado;
+  });
+
   // --- CONSULTAR CAJONES PARA EDICIÓN ---
   const consultarCajonesEdicion = async () => {
-    if (!fecha || !fechaFin || !hora || !horaFin) {
-        Alert.alert("Atención", "Asegúrate de que las fechas y horas estén definidas antes de buscar cajones.");
-        return;
-    }
+    if (!selectedCita) return;
     setLoadingCajones(true);
     try {
         const data = await filtrarCajonesService({ 
-            fecha_inicio: fecha, 
-            fecha_fin: fechaFin, 
-            hora_inicio: hora, 
-            hora_fin: horaFin,
-            id_cita: selectedCita.id // Pasamos el ID de la cita actual
+            fecha_inicio: selectedCita.fecha_inicio.split("T")[0], 
+            fecha_fin: selectedCita.fecha_fin.split("T")[0], 
+            hora_inicio: selectedCita.hora_inicio, 
+            hora_fin: selectedCita.hora_fin,
+            id_cita: selectedCita.id 
         });
         setCajones(data);
-        if (data.length === 0) Alert.alert("Aviso", "No hay cajones disponibles en ese horario.");
+        if (data.length === 0) Alert.alert("Aviso", "No hay cajones disponibles.");
     } catch (error) {
         Alert.alert("Error", "No se pudieron cargar los cajones.");
     } finally {
@@ -161,8 +179,7 @@ export default function CitasJuca() {
       setHora(cita.hora_inicio || '');
       setHoraFin(cita.hora_fin || '');
       setEstadoCita(cita.estado_cita || 'Confirmada');
-      setIdCajon(cita.id_cajon?.toString() || ''); // Cargamos el cajón actual si tiene
-      setCajones([]); // Reseteamos la lista de opciones
+      setCajones([]); 
       setModalVisible(true);
     }
 
@@ -184,8 +201,10 @@ export default function CitasJuca() {
         try {
             const invitados = await getInvitadosByCitaService(cita.id);
             setInvitadosList(invitados);
-            setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
+            setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '', id_cajon: '' });
             setCurrentInvitado(null);
+            setTraeVehiculo(true);
+            setConductorSeleccionado('');
             setShowInvitadoModal(true);
         } catch (error) {
             Alert.alert("Error", "No se pudieron cargar los invitados.");
@@ -208,8 +227,8 @@ export default function CitasJuca() {
       hora_fin: horaFin,
       motivo: titulo,
       estado_cita: estadoCita,
-      numero_invitados: selectedCita.numero_invitados,
-      id_cajon: idCajon || null // Enviamos el ID del cajón seleccionado
+      numero_invitados: selectedCita.numero_invitados
+      // 🟢 Eliminado el id_cajon
     };
 
     const result = await updateCitaService(selectedCita.id, dataToSend);
@@ -230,10 +249,10 @@ export default function CitasJuca() {
     cargarCitas();
   };
 
+  // --- GESTIÓN DE INVITADOS (CRUD INDIVIDUAL) ---
   const handleSaveInvitado = async () => {
-      // Matricula obligatoria para el registro/edición
-      if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim() || !formInvitado.matricula.trim()) {
-          Alert.alert("Datos incompletos", "Todos los campos son obligatorios.");
+      if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim()) {
+          Alert.alert("Datos incompletos", "Todos los campos principales son obligatorios.");
           return;
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -242,26 +261,45 @@ export default function CitasJuca() {
           return;
       }
 
+      let matriculaFinal = formInvitado.matricula;
+      let idCajonFinal = formInvitado.id_cajon;
+
+      if (traeVehiculo) {
+          if (!matriculaFinal.trim() || !idCajonFinal) {
+              Alert.alert("Faltan datos", "El conductor necesita una matrícula y un cajón asignado.");
+              return;
+          }
+      } else {
+          if (!conductorSeleccionado) {
+              Alert.alert("Faltan datos", "Selecciona con quién comparte vehículo.");
+              return;
+          }
+          const conductor = conductoresUnicos.find(inv => inv.nombre === conductorSeleccionado);
+          if (conductor) {
+              matriculaFinal = conductor.matricula;
+              idCajonFinal = conductor.id_cajon;
+          }
+      }
+
       try {
+          const payload = { 
+              ...formInvitado, 
+              matricula: matriculaFinal,
+              id_cajon: idCajonFinal ? Number(idCajonFinal) : null,
+              id_cita: selectedCita.id 
+          };
+
           if (currentInvitado) {
-              await updateInvitadoService(currentInvitado.id, { 
-                  ...formInvitado, 
-                  id_cita: selectedCita.id 
-              });
+              await updateInvitadoService(currentInvitado.id, payload);
               Alert.alert("¡Éxito!", "Invitado actualizado");
           } else {
-              await registrarInvitadoService({ 
-                  ...formInvitado, 
-                  id_cita: selectedCita.id 
-              });
+              await registrarInvitadoService(payload);
               Alert.alert("¡Éxito!", "Invitado agregado");
           }
           
           const updatedList = await getInvitadosByCitaService(selectedCita.id);
           setInvitadosList(updatedList);
-          
-          setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
-          setCurrentInvitado(null);
+          handleCancelEditInvitado();
           cargarCitas(); 
 
       } catch (error: any) {
@@ -276,13 +314,31 @@ export default function CitasJuca() {
           correo: inv.correo,
           empresa: inv.empresa || '',
           tipo_visitante: inv.tipo_visitante || '',
-          matricula: inv.matricula || ''
+          matricula: inv.matricula || '',
+          id_cajon: inv.id_cajon?.toString() || ''
       });
+
+      if (inv.id_cajon) {
+          const esConductorPrincipal = invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id;
+          
+          if (esConductorPrincipal) {
+              setTraeVehiculo(true);
+              setConductorSeleccionado('');
+          } else {
+              setTraeVehiculo(false);
+              const conductor = invitadosList.find(c => c.id_cajon === inv.id_cajon);
+              setConductorSeleccionado(conductor ? conductor.nombre : '');
+          }
+      } else {
+          setTraeVehiculo(true); 
+      }
   };
 
   const handleCancelEditInvitado = () => {
       setCurrentInvitado(null);
-      setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
+      setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '', id_cajon: '' });
+      setTraeVehiculo(true);
+      setConductorSeleccionado('');
   };
 
   const handleDeleteInvitado = async (idInv: number) => {
@@ -385,14 +441,10 @@ export default function CitasJuca() {
                 <Text style={styles.label}>Título</Text>
                 <TextInput style={styles.input} value={titulo} onChangeText={setTitulo} />
 
-                <Text style={styles.label}>Fecha inicio</Text>
+                {/* FECHA ÚNICA DE LA CITA */}
+                <Text style={styles.label}>Fecha de la Cita</Text>
                 <TouchableOpacity onPress={() => setShowFechaPicker(true)} style={styles.input}>
                     <Text>{fecha || "Seleccionar fecha"}</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.label}>Fecha fin</Text>
-                <TouchableOpacity onPress={() => setShowFechaFinPicker(true)} style={styles.input}>
-                    <Text>{fechaFin || "Seleccionar fecha fin"}</Text>
                 </TouchableOpacity>
                 
                 <Text style={styles.label}>Estado</Text>
@@ -416,32 +468,19 @@ export default function CitasJuca() {
                      </View>
                 </View>
 
-                {/* BOTÓN Y SELECTOR DE CAJONES */}
-                <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 15}]} onPress={consultarCajonesEdicion}>
-                    <Text style={{color: '#FFF', fontWeight: 'bold'}}>Ver Cajones Disponibles</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.label}>Seleccionar Cajón</Text>
-                {loadingCajones ? <ActivityIndicator size="small" color="#6C9A8B" /> : (
-                  <View style={[styles.input, {padding: 0}]}>
-                    <Picker
-                        selectedValue={idCajon}
-                        onValueChange={(val) => setIdCajon(val)}
-                    >
-                        <Picker.Item label="-- Sin Cajón --" value="" />
-                        {cajones.map(c => (
-                            <Picker.Item key={c.id} label={`Cajón ${c.numero_cajon}`} value={c.id} />
-                        ))}
-                    </Picker>
-                  </View>
-                )}
-
-                {/* PICKERS OCULTOS */}
                 {showFechaPicker && (
-                    <DateTimePicker mode="date" value={getDateFromString(fecha)} onChange={(e, d) => { setShowFechaPicker(false); if (e.type === 'set' && d) setFecha(d.toISOString().split("T")[0]); }} />
-                )}
-                {showFechaFinPicker && (
-                    <DateTimePicker mode="date" value={getDateFromString(fechaFin)} onChange={(e, d) => { setShowFechaFinPicker(false); if (e.type === 'set' && d) setFechaFin(d.toISOString().split("T")[0]); }} />
+                    <DateTimePicker 
+                        mode="date" 
+                        value={getDateFromString(fecha)} 
+                        onChange={(e, d) => { 
+                            setShowFechaPicker(false); 
+                            if (e.type === 'set' && d) {
+                                const selectedDate = d.toISOString().split("T")[0];
+                                setFecha(selectedDate); 
+                                setFechaFin(selectedDate); 
+                            }
+                        }} 
+                    />
                 )}
                 {showHoraPicker && (
                     <DateTimePicker mode="time" value={getTimeFromString(hora)} is24Hour={true} onChange={(e, t) => { setShowHoraPicker(false); if (e.type === 'set' && t) setHora(t.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', hour12: false})); }} />
@@ -485,20 +524,52 @@ export default function CitasJuca() {
                         <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Tipo (Ej. Cliente)" value={formInvitado.tipo_visitante} onChangeText={(t) => setFormInvitado({...formInvitado, tipo_visitante: t})} />
                     </View>
 
-                    {/* CAMPO DE MATRÍCULA (CON CONVERSIÓN DE ESPACIO A GUION) */}
-                    <View style={{flexDirection: 'row', gap: 5}}>
-                        <TextInput 
-                            style={[styles.input, {flex: 1, marginBottom: 0}]} 
-                            placeholder="Matrícula (Ej. UKL-247-K)" 
-                            value={formInvitado.matricula} 
-                            maxLength={9} 
-                            onChangeText={(t) => setFormInvitado({
-                                ...formInvitado, 
-                                matricula: t.replace(/ /g, '-').replace(/[^A-Za-z0-9-]/g, '').toUpperCase() 
-                            })} 
-                            autoCapitalize="characters" 
-                        />
+                    {/* --- SWITCH DE VEHÍCULO COMPARTIDO --- */}
+                    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 5, backgroundColor: '#FFF', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#EEE'}}>
+                        <Text style={{fontFamily: 'Inter', color: '#2E4053', fontSize: 13}}>¿Trae vehículo propio?</Text>
+                        <Switch value={traeVehiculo} onValueChange={setTraeVehiculo} trackColor={{ false: "#AAB7B8", true: "#3498DB" }} />
                     </View>
+
+                    {/* RENDERIZADO CONDICIONAL DE CAJÓN Y MATRÍCULA */}
+                    {traeVehiculo ? (
+                        <View>
+                            <TextInput 
+                                style={[styles.input, {marginBottom: 5}]} 
+                                placeholder="Matrícula (Ej. UKL-247-K)" 
+                                value={formInvitado.matricula} 
+                                maxLength={9} 
+                                onChangeText={(t) => setFormInvitado({
+                                    ...formInvitado, 
+                                    matricula: t.replace(/ /g, '-').replace(/[^A-Za-z0-9-]/g, '').toUpperCase() 
+                                })} 
+                                autoCapitalize="characters" 
+                            />
+
+                            <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 0, paddingVertical: 8, marginBottom: 5}]} onPress={consultarCajonesEdicion}>
+                                <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 12}}>1. Buscar Cajones Disponibles</Text>
+                            </TouchableOpacity>
+
+                            {loadingCajones ? <ActivityIndicator size="small" color="#3498DB" style={{marginTop: 5}} /> : (
+                                <View style={[styles.input, {padding: 0}]}>
+                                    <Picker selectedValue={formInvitado.id_cajon} onValueChange={(val) => setFormInvitado({...formInvitado, id_cajon: val})}>
+                                        <Picker.Item label="2. Seleccionar Cajón" value="" />
+                                        {cajonesDisponiblesLocales.map(c => (
+                                            <Picker.Item key={c.id} label={`Cajón ${c.numero_cajon}`} value={c.id.toString()} />
+                                        ))}
+                                    </Picker>
+                                </View>
+                            )}
+                        </View>
+                    ) : (
+                        <View style={[styles.input, {padding: 0, marginTop: 5}]}>
+                            <Picker selectedValue={conductorSeleccionado} onValueChange={(val) => setConductorSeleccionado(val)}>
+                                <Picker.Item label="-- Comparte coche con: --" value="" />
+                                {conductoresUnicos.map((inv, idx) => (
+                                    <Picker.Item key={idx} label={inv.nombre} value={inv.nombre} />
+                                ))}
+                            </Picker>
+                        </View>
+                    )}
 
                     <View style={{flexDirection: 'row', gap: 10, marginTop: 10}}>
                         <TouchableOpacity style={[styles.button, {marginTop: 0, flex: 1, backgroundColor: currentInvitado ? '#F39C12' : '#3498DB'}]} onPress={handleSaveInvitado}>
@@ -516,18 +587,26 @@ export default function CitasJuca() {
                     {invitadosList.length === 0 ? (
                         <Text style={{textAlign: 'center', color: '#888', marginTop: 20}}>No hay invitados registrados.</Text>
                     ) : (
-                        invitadosList.map((inv, idx) => (
-                            <View key={inv.id} style={styles.guestItem}>
-                                <View style={{flex: 1}}>
-                                    <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
-                                    <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa} {inv.matricula ? `• Matrícula: ${inv.matricula}` : ''}</Text>
+                        invitadosList.map((inv, idx) => {
+                            // 🟢 Calculamos en tiempo real quién es el conductor y quién es el pasajero
+                            const esPrincipal = inv.id_cajon ? invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id : false;
+
+                            return (
+                                <View key={inv.id} style={[styles.guestItem, {borderLeftColor: inv.id_cajon ? (esPrincipal ? '#3498DB' : '#F39C12') : '#AAB7B8', borderLeftWidth: 4}]}>
+                                    <View style={{flex: 1}}>
+                                        <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
+                                        <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa} {inv.matricula ? `• Matrícula: ${inv.matricula}` : ''}</Text>
+                                        <Text style={{fontFamily: 'Inter', color: inv.id_cajon ? (esPrincipal ? '#27AE60' : '#888') : '#888', fontSize: 11, fontWeight: 'bold'}}>
+                                            {inv.id_cajon ? (esPrincipal ? `🚗 Conductor (Cajón: ${inv.numero_cajon || inv.id_cajon})` : '🚶‍♂️ Pasajero (Compartido)') : '🚶‍♂️ Sin Vehículo'}
+                                        </Text>
+                                    </View>
+                                    <View style={{flexDirection: 'row', gap: 10}}>
+                                        <TouchableOpacity onPress={() => handleEditInvitado(inv)} style={{padding: 5}}><MaterialIcons name="edit" size={22} color="#F39C12" /></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleDeleteInvitado(inv.id)} style={{padding: 5}}><MaterialIcons name="delete" size={22} color="#E74C3C" /></TouchableOpacity>
+                                    </View>
                                 </View>
-                                <View style={{flexDirection: 'row', gap: 10}}>
-                                    <TouchableOpacity onPress={() => handleEditInvitado(inv)} style={{padding: 5}}><MaterialIcons name="edit" size={22} color="#F39C12" /></TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDeleteInvitado(inv.id)} style={{padding: 5}}><MaterialIcons name="delete" size={22} color="#E74C3C" /></TouchableOpacity>
-                                </View>
-                            </View>
-                        ))
+                            );
+                        })
                     )}
                 </ScrollView>
             </View>
@@ -613,4 +692,5 @@ const styles = StyleSheet.create({
   guestDetails: { fontFamily: 'Inter', color: '#777', fontSize: 11, marginTop: 2 },
   actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, gap: 10, elevation: 2 },
   actionButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', fontFamily: 'Poppins-SemiBold' },
+  addBtn: { paddingVertical: 10, borderRadius: 8, marginTop: 10, alignItems: "center" }
 });
