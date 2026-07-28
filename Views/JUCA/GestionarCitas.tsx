@@ -9,7 +9,8 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Platform
+  Platform,
+  Switch
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
@@ -25,7 +26,7 @@ import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
 import HeaderJucas from '../../components/HeaderJucas'; 
 
-// 🟢 IMPORTAMOS EL SERVICIO DE ADMINISTRACIÓN GENERAL (TRAE TODAS LAS CITAS)
+// 🟢 IMPORTAMOS EL SERVICIO DE ADMINISTRACIÓN GENERAL
 import {
   getCitasAdminService,
   deleteCitaService,
@@ -36,7 +37,6 @@ import {
   deleteInvitadoService
 } from "../../services/citasServiceJuca";
 
-// IMPORTAMOS EL SERVICIO DE CAJONES
 import { filtrarCajonesService } from '../../services/cajonesService';
 
 export default function GestionarCitas() {
@@ -69,7 +69,6 @@ export default function GestionarCitas() {
 
   // --- NUEVOS ESTADOS PARA CAJONES (EDICIÓN) ---
   const [cajones, setCajones] = useState<any[]>([]);
-  const [idCajon, setIdCajon] = useState(''); 
   const [loadingCajones, setLoadingCajones] = useState(false);
   
   // --- FORMULARIO INVITADOS ---
@@ -80,14 +79,16 @@ export default function GestionarCitas() {
     correo: '', 
     empresa: '', 
     tipo_visitante: '',
-    matricula: '' 
+    matricula: '',
+    id_cajon: '' 
   });
 
-  // --- PICKERS ---
+  // --- PICKERS Y SWITCHES ---
   const [showFechaPicker, setShowFechaPicker] = useState(false);
-  const [showFechaFinPicker, setShowFechaFinPicker] = useState(false);
   const [showHoraPicker, setShowHoraPicker] = useState(false);
   const [showHoraFinPicker, setShowHoraFinPicker] = useState(false);
+  const [traeVehiculo, setTraeVehiculo] = useState(true);
+  const [conductorSeleccionado, setConductorSeleccionado] = useState('');
 
   const [fontsLoaded] = useFonts({
     Poppins: require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
@@ -114,19 +115,35 @@ export default function GestionarCitas() {
     return date;
   };
 
+  // --- 🟢 LÓGICA INTELIGENTE: Identificar Conductores Únicos ---
+  const conductoresUnicos: any[] = [];
+  const cajonesVistos = new Set();
+  invitadosList.forEach(inv => {
+      if (inv.id_cajon && !cajonesVistos.has(inv.id_cajon)) {
+          cajonesVistos.add(inv.id_cajon);
+          conductoresUnicos.push(inv);
+      }
+  });
+
+  // --- 🟢 FILTRO INTELIGENTE DE CAJONES LOCALES ---
+  const cajonesDisponiblesLocales = cajones.filter(cajonBD => {
+      if (currentInvitado && String(cajonBD.id) === String(currentInvitado.id_cajon)) {
+          return true;
+      }
+      const ocupado = invitadosList.some(inv => String(inv.id_cajon) === String(cajonBD.id));
+      return !ocupado;
+  });
+
   // --- CONSULTAR CAJONES PARA EDICIÓN ---
   const consultarCajonesEdicion = async () => {
-    if (!fecha || !fechaFin || !hora || !horaFin) {
-        Alert.alert("Atención", "Asegúrate de que las fechas y horas estén definidas antes de buscar cajones.");
-        return;
-    }
+    if (!selectedCita) return;
     setLoadingCajones(true);
     try {
         const data = await filtrarCajonesService({ 
-            fecha_inicio: fecha, 
-            fecha_fin: fechaFin, 
-            hora_inicio: hora, 
-            hora_fin: horaFin,
+            fecha_inicio: selectedCita.fecha_inicio.split("T")[0], 
+            fecha_fin: selectedCita.fecha_fin.split("T")[0], 
+            hora_inicio: selectedCita.hora_inicio, 
+            hora_fin: selectedCita.hora_fin,
             id_cita: selectedCita.id 
         });
         setCajones(data);
@@ -138,7 +155,6 @@ export default function GestionarCitas() {
     }
   };
 
-  // 🟢 TRAE ABSOLUTAMENTE TODAS LAS CITAS REGISTRADAS
   const cargarCitas = async () => {
     setLoading(true);
     try {
@@ -162,7 +178,6 @@ export default function GestionarCitas() {
       setHora(cita.hora_inicio || '');
       setHoraFin(cita.hora_fin || '');
       setEstadoCita(cita.estado_cita || 'Confirmada');
-      setIdCajon(cita.id_cajon?.toString() || ''); 
       setCajones([]); 
       setModalVisible(true);
     }
@@ -185,8 +200,10 @@ export default function GestionarCitas() {
         try {
             const invitados = await getInvitadosByCitaService(cita.id);
             setInvitadosList(invitados);
-            setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
+            setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '', id_cajon: '' });
             setCurrentInvitado(null);
+            setTraeVehiculo(true);
+            setConductorSeleccionado('');
             setShowInvitadoModal(true);
         } catch (error) {
             Alert.alert("Error", "No se pudieron cargar los invitados.");
@@ -209,8 +226,7 @@ export default function GestionarCitas() {
       hora_fin: horaFin,
       motivo: titulo,
       estado_cita: estadoCita,
-      numero_invitados: selectedCita.numero_invitados,
-      id_cajon: idCajon || null 
+      numero_invitados: selectedCita.numero_invitados
     };
 
     const result = await updateCitaService(selectedCita.id, dataToSend);
@@ -232,8 +248,8 @@ export default function GestionarCitas() {
   };
 
   const handleSaveInvitado = async () => {
-      if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim() || !formInvitado.matricula.trim()) {
-          Alert.alert("Datos incompletos", "Todos los campos son obligatorios.");
+      if (!formInvitado.nombre.trim() || !formInvitado.correo.trim() || !formInvitado.empresa.trim() || !formInvitado.tipo_visitante.trim()) {
+          Alert.alert("Datos incompletos", "Todos los campos principales son obligatorios.");
           return;
       }
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -242,26 +258,47 @@ export default function GestionarCitas() {
           return;
       }
 
+      let matriculaFinal = formInvitado.matricula;
+      let idCajonFinal = formInvitado.id_cajon;
+
+      if (traeVehiculo) {
+          if (!matriculaFinal.trim() || !idCajonFinal) {
+              Alert.alert("Faltan datos", "El conductor necesita una matrícula y un cajón asignado.");
+              return;
+          }
+      } else {
+          // 🟢 MAGIA: Si eligieron la opción de "Llega a pie", matricula y cajón quedan vacíos
+          if (!conductorSeleccionado) {
+              matriculaFinal = '';
+              idCajonFinal = '';
+          } else {
+              const conductor = conductoresUnicos.find(inv => inv.nombre === conductorSeleccionado);
+              if (conductor) {
+                  matriculaFinal = conductor.matricula;
+                  idCajonFinal = conductor.id_cajon;
+              }
+          }
+      }
+
       try {
+          const payload = { 
+              ...formInvitado, 
+              matricula: matriculaFinal,
+              id_cajon: idCajonFinal ? Number(idCajonFinal) : null,
+              id_cita: selectedCita.id 
+          };
+
           if (currentInvitado) {
-              await updateInvitadoService(currentInvitado.id, { 
-                  ...formInvitado, 
-                  id_cita: selectedCita.id 
-              });
+              await updateInvitadoService(currentInvitado.id, payload);
               Alert.alert("¡Éxito!", "Invitado actualizado");
           } else {
-              await registrarInvitadoService({ 
-                  ...formInvitado, 
-                  id_cita: selectedCita.id 
-              });
+              await registrarInvitadoService(payload);
               Alert.alert("¡Éxito!", "Invitado agregado");
           }
           
           const updatedList = await getInvitadosByCitaService(selectedCita.id);
           setInvitadosList(updatedList);
-          
-          setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
-          setCurrentInvitado(null);
+          handleCancelEditInvitado();
           cargarCitas(); 
 
       } catch (error: any) {
@@ -276,13 +313,34 @@ export default function GestionarCitas() {
           correo: inv.correo,
           empresa: inv.empresa || '',
           tipo_visitante: inv.tipo_visitante || '',
-          matricula: inv.matricula || ''
+          matricula: inv.matricula || '',
+          id_cajon: inv.id_cajon?.toString() || ''
       });
+
+      // 🟢 Identificación inteligente de quién es el invitado al editarlo
+      if (inv.id_cajon) {
+          const esConductorPrincipal = invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id;
+          
+          if (esConductorPrincipal) {
+              setTraeVehiculo(true);
+              setConductorSeleccionado('');
+          } else {
+              setTraeVehiculo(false);
+              const conductor = invitadosList.find(c => c.id_cajon === inv.id_cajon);
+              setConductorSeleccionado(conductor ? conductor.nombre : '');
+          }
+      } else {
+          // Si no tiene cajón ni matrícula, es que llega A PIE (Sin vehículo)
+          setTraeVehiculo(false);
+          setConductorSeleccionado('');
+      }
   };
 
   const handleCancelEditInvitado = () => {
       setCurrentInvitado(null);
-      setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });
+      setFormInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '', id_cajon: '' });
+      setTraeVehiculo(true);
+      setConductorSeleccionado('');
   };
 
   const handleDeleteInvitado = async (idInv: number) => {
@@ -327,7 +385,7 @@ export default function GestionarCitas() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#FDFEFE' }}>
-      <HeaderJucas title="Administrar Sistema" />
+      <HeaderJucas title="Administración de citas" />
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }}>
         <Text style={styles.sectionTitle}>Panel General de Citas</Text>
@@ -385,14 +443,10 @@ export default function GestionarCitas() {
                 <Text style={styles.label}>Título</Text>
                 <TextInput style={styles.input} value={titulo} onChangeText={setTitulo} />
 
-                <Text style={styles.label}>Fecha inicio</Text>
+                {/* FECHA ÚNICA DE LA CITA */}
+                <Text style={styles.label}>Fecha de la Cita</Text>
                 <TouchableOpacity onPress={() => setShowFechaPicker(true)} style={styles.input}>
                     <Text>{fecha || "Seleccionar fecha"}</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.label}>Fecha fin</Text>
-                <TouchableOpacity onPress={() => setShowFechaFinPicker(true)} style={styles.input}>
-                    <Text>{fechaFin || "Seleccionar fecha fin"}</Text>
                 </TouchableOpacity>
                 
                 <Text style={styles.label}>Estado</Text>
@@ -416,32 +470,19 @@ export default function GestionarCitas() {
                      </View>
                 </View>
 
-                {/* BOTÓN Y SELECTOR DE CAJONES */}
-                <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 15}]} onPress={consultarCajonesEdicion}>
-                    <Text style={{color: '#FFF', fontWeight: 'bold'}}>Ver Cajones Disponibles</Text>
-                </TouchableOpacity>
-
-                <Text style={styles.label}>Seleccionar Cajón</Text>
-                {loadingCajones ? <ActivityIndicator size="small" color="#6C9A8B" /> : (
-                  <View style={[styles.input, {padding: 0}]}>
-                    <Picker
-                        selectedValue={idCajon}
-                        onValueChange={(val) => setIdCajon(val)}
-                    >
-                        <Picker.Item label="-- Sin Cajón --" value="" />
-                        {cajones.map(c => (
-                            <Picker.Item key={c.id} label={`Cajón ${c.numero_cajon}`} value={c.id} />
-                        ))}
-                    </Picker>
-                  </View>
-                )}
-
-                {/* PICKERS OCULTOS */}
                 {showFechaPicker && (
-                    <DateTimePicker mode="date" value={getDateFromString(fecha)} onChange={(e, d) => { setShowFechaPicker(false); if (e.type === 'set' && d) setFecha(d.toISOString().split("T")[0]); }} />
-                )}
-                {showFechaFinPicker && (
-                    <DateTimePicker mode="date" value={getDateFromString(fechaFin)} onChange={(e, d) => { setShowFechaFinPicker(false); if (e.type === 'set' && d) setFechaFin(d.toISOString().split("T")[0]); }} />
+                    <DateTimePicker 
+                        mode="date" 
+                        value={getDateFromString(fecha)} 
+                        onChange={(e, d) => { 
+                            setShowFechaPicker(false); 
+                            if (e.type === 'set' && d) {
+                                const selectedDate = d.toISOString().split("T")[0];
+                                setFecha(selectedDate); 
+                                setFechaFin(selectedDate); 
+                            }
+                        }} 
+                    />
                 )}
                 {showHoraPicker && (
                     <DateTimePicker mode="time" value={getTimeFromString(hora)} is24Hour={true} onChange={(e, t) => { setShowHoraPicker(false); if (e.type === 'set' && t) setHora(t.toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit', hour12: false})); }} />
@@ -482,23 +523,61 @@ export default function GestionarCitas() {
                     
                     <View style={{flexDirection: 'row', gap: 5, marginBottom: 5}}>
                         <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Empresa" value={formInvitado.empresa} onChangeText={(t) => setFormInvitado({...formInvitado, empresa: t})} />
-                        <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Tipo" value={formInvitado.tipo_visitante} onChangeText={(t) => setFormInvitado({...formInvitado, tipo_visitante: t})} />
+                        <TextInput style={[styles.input, {flex: 1, marginBottom: 0}]} placeholder="Tipo (Ej. Cliente)" value={formInvitado.tipo_visitante} onChangeText={(t) => setFormInvitado({...formInvitado, tipo_visitante: t})} />
                     </View>
 
-                    {/* CAMPO DE MATRÍCULA CON ESPACIO AUTOMÁTICO A GUION Y MÁXIMO DE 9 CARACTERES */}
-                    <View style={{flexDirection: 'row', gap: 5}}>
-                        <TextInput 
-                            style={[styles.input, {flex: 1, marginBottom: 0}]} 
-                            placeholder="Matrícula (Ej. UKL-247-K)" 
-                            value={formInvitado.matricula} 
-                            maxLength={9} 
-                            onChangeText={(t) => setFormInvitado({
-                                ...formInvitado, 
-                                matricula: t.replace(/ /g, '-').replace(/[^A-Za-z0-9-]/g, '').toUpperCase() 
-                            })} 
-                            autoCapitalize="characters" 
-                        />
+                    {/* --- SWITCH DE VEHÍCULO COMPARTIDO --- */}
+                    <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10, marginBottom: 5, backgroundColor: '#FFF', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#EEE'}}>
+                        <Text style={{fontFamily: 'Inter', color: '#2E4053', fontSize: 13}}>¿Trae vehículo propio?</Text>
+                        <Switch value={traeVehiculo} onValueChange={setTraeVehiculo} trackColor={{ false: "#AAB7B8", true: "#3498DB" }} />
                     </View>
+
+                    {/* RENDERIZADO CONDICIONAL DE CAJÓN Y MATRÍCULA */}
+                    {traeVehiculo ? (
+                        <View>
+                            <TextInput 
+                                style={[styles.input, {marginBottom: 5}]} 
+                                placeholder="Matrícula (Ej. UKL-247-K)" 
+                                value={formInvitado.matricula} 
+                                maxLength={9} 
+                                onChangeText={(t) => setFormInvitado({
+                                    ...formInvitado, 
+                                    matricula: t.replace(/ /g, '-').replace(/[^A-Za-z0-9-]/g, '').toUpperCase() 
+                                })} 
+                                autoCapitalize="characters" 
+                            />
+
+                            <TouchableOpacity style={[styles.addBtn, {backgroundColor: '#2E4053', marginTop: 0, paddingVertical: 8, marginBottom: 5}]} onPress={consultarCajonesEdicion}>
+                                <Text style={{color: '#FFF', fontWeight: 'bold', fontSize: 12}}>1. Buscar Cajones Disponibles</Text>
+                            </TouchableOpacity>
+
+                            <View style={[styles.input, {padding: 0}]}>
+                                <Picker selectedValue={formInvitado.id_cajon} onValueChange={(val) => setFormInvitado({...formInvitado, id_cajon: val})}>
+                                    <Picker.Item label="2. Seleccionar Cajón" value="" />
+                                    
+                                    {/* 🟢 MAGIA VITAL: Preserva el cajón en memoria para que Android no lo borre antes de buscar */}
+                                    {cajonesDisponiblesLocales.length === 0 && formInvitado.id_cajon ? (
+                                        <Picker.Item label={`Cajón ${formInvitado.id_cajon} (Actual)`} value={formInvitado.id_cajon.toString()} />
+                                    ) : null}
+
+                                    {cajonesDisponiblesLocales.map(c => (
+                                        <Picker.Item key={c.id} label={`Cajón ${c.numero_cajon}`} value={c.id.toString()} />
+                                    ))}
+                                </Picker>
+                            </View>
+                            {loadingCajones && <ActivityIndicator size="small" color="#3498DB" style={{marginTop: 5}} />}
+                        </View>
+                    ) : (
+                        <View style={[styles.input, {padding: 0, marginTop: 5}]}>
+                            <Picker selectedValue={conductorSeleccionado} onValueChange={(val) => setConductorSeleccionado(val)}>
+                                {/* 🟢 MAGIA: Agregamos la opción para los que llegan A PIE */}
+                                <Picker.Item label="-- Ninguno (Llega a pie) --" value="" />
+                                {conductoresUnicos.map((inv, idx) => (
+                                    <Picker.Item key={idx} label={`Comparte coche con: ${inv.nombre}`} value={inv.nombre} />
+                                ))}
+                            </Picker>
+                        </View>
+                    )}
 
                     <View style={{flexDirection: 'row', gap: 10, marginTop: 10}}>
                         <TouchableOpacity style={[styles.button, {marginTop: 0, flex: 1, backgroundColor: currentInvitado ? '#F39C12' : '#3498DB'}]} onPress={handleSaveInvitado}>
@@ -516,18 +595,26 @@ export default function GestionarCitas() {
                     {invitadosList.length === 0 ? (
                         <Text style={{textAlign: 'center', color: '#888', marginTop: 20}}>No hay invitados registrados.</Text>
                     ) : (
-                        invitadosList.map((inv, idx) => (
-                            <View key={inv.id} style={styles.guestItem}>
-                                <View style={{flex: 1}}>
-                                    <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
-                                    <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa} {inv.matricula ? `• Matrícula: ${inv.matricula}` : ''}</Text>
+                        invitadosList.map((inv, idx) => {
+                            // 🟢 Calculamos en tiempo real si es conductor, pasajero, o llega a pie
+                            const esPrincipal = inv.id_cajon ? invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id : false;
+
+                            return (
+                                <View key={inv.id} style={[styles.guestItem, {borderLeftColor: inv.id_cajon ? (esPrincipal ? '#3498DB' : '#F39C12') : '#AAB7B8', borderLeftWidth: 4}]}>
+                                    <View style={{flex: 1}}>
+                                        <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
+                                        <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa} {inv.matricula ? `• Matrícula: ${inv.matricula}` : ''}</Text>
+                                        <Text style={{fontFamily: 'Inter', color: inv.id_cajon ? (esPrincipal ? '#27AE60' : '#888') : '#888', fontSize: 11, fontWeight: 'bold'}}>
+                                            {inv.id_cajon ? (esPrincipal ? `🚗 Conductor (Cajón: ${inv.numero_cajon || inv.id_cajon})` : '🚶‍♂️ Pasajero (Compartido)') : '🚶‍♂️ Llega a pie (Sin Vehículo)'}
+                                        </Text>
+                                    </View>
+                                    <View style={{flexDirection: 'row', gap: 10}}>
+                                        <TouchableOpacity onPress={() => handleEditInvitado(inv)} style={{padding: 5}}><MaterialIcons name="edit" size={22} color="#F39C12" /></TouchableOpacity>
+                                        <TouchableOpacity onPress={() => handleDeleteInvitado(inv.id)} style={{padding: 5}}><MaterialIcons name="delete" size={22} color="#E74C3C" /></TouchableOpacity>
+                                    </View>
                                 </View>
-                                <View style={{flexDirection: 'row', gap: 10}}>
-                                    <TouchableOpacity onPress={() => handleEditInvitado(inv)} style={{padding: 5}}><MaterialIcons name="edit" size={22} color="#F39C12" /></TouchableOpacity>
-                                    <TouchableOpacity onPress={() => handleDeleteInvitado(inv.id)} style={{padding: 5}}><MaterialIcons name="delete" size={22} color="#E74C3C" /></TouchableOpacity>
-                                </View>
-                            </View>
-                        ))
+                            );
+                        })
                     )}
                 </ScrollView>
             </View>
@@ -587,6 +674,13 @@ const styles = StyleSheet.create({
   overlayMenu: { position: "absolute", right: 40, top: 40, zIndex: 9999, elevation: 50 },
   menuBox: { backgroundColor: "#FFF", borderRadius: 8, paddingVertical: 5, borderWidth: 1, borderColor: "#eee", elevation: 5, minWidth: 160 },
   menuItem: { paddingVertical: 12, paddingHorizontal: 15, fontSize: 14, color: "#2E4053", fontFamily: 'Inter', borderBottomWidth: 0.5, borderBottomColor: '#f0f0f0' },
+  
+  /* --- ESTILOS PARA ESTADO VACÍO --- */
+  emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
+  emptyText: { color: '#888', fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  emptyButton: { flexDirection: 'row', backgroundColor: '#6C9A8B', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: '100%' },
+  emptyButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', marginLeft: 10, fontSize: 16 },
+  
   modalContainer: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalBox: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, width: '100%', maxHeight: '90%' },
   modalTitle: { color: '#2E4053', fontFamily: 'Poppins-SemiBold', fontSize: 18, marginBottom: 15, textAlign: 'center' },
@@ -606,9 +700,5 @@ const styles = StyleSheet.create({
   guestDetails: { fontFamily: 'Inter', color: '#777', fontSize: 11, marginTop: 2 },
   actionButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 12, gap: 10, elevation: 2 },
   actionButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold', fontFamily: 'Poppins-SemiBold' },
-  emptyContainer: { alignItems: 'center', marginTop: 50, padding: 20 },
-  emptyText: { color: '#888', fontSize: 16, marginBottom: 20, textAlign: 'center' },
-  emptyButton: { flexDirection: 'row', backgroundColor: '#6C9A8B', padding: 15, borderRadius: 10, alignItems: 'center', justifyContent: 'center', width: '100%' },
-  emptyButtonText: { color: '#FFF', fontFamily: 'Poppins-SemiBold', marginLeft: 10, fontSize: 16 },
   addBtn: { paddingVertical: 10, borderRadius: 8, marginTop: 10, alignItems: "center" }
 });
