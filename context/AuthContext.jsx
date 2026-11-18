@@ -1,101 +1,11 @@
-<<<<<<< HEAD
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api/axios.js';
-=======
-import { createContext, useContext, useState, useEffect } from 'react';
-import { api } from '../api/axios';
->>>>>>> 98ee1a2876fe820e0ac4f823cda077cd395387ba
-import { jwtDecode } from 'jwt-decode';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { jwtDecode } from 'jwt-decode';
+import { createContext, useContext, useEffect, useState } from 'react';
+import { api } from '../api/axios';
 
 const AuthContext = createContext();
 
 export const useAuth = () => {
-<<<<<<< HEAD
-    return useContext(AuthContext);
-};
-
-export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
-    const [token, setToken] = useState(null); // Access Token
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [loading, setLoading] = useState(true);
-
-    // 1. LOGIN (llamado por la pantalla de Login)
-    const login = async (userData, accessToken, newRefreshToken) => {
-        setUser(userData);
-        setToken(accessToken);
-        setIsAuthenticated(true);
-        // Guardamos el refresh token de forma segura en el teléfono
-        await AsyncStorage.setItem('refreshToken', newRefreshToken);
-    };
-
-    // 2. LOGOUT
-    const logout = async () => {
-        // (Opcional: llamar a /logout del backend)
-        setUser(null);
-        setToken(null);
-        setIsAuthenticated(false);
-        // Borramos el token guardado
-        await AsyncStorage.removeItem('refreshToken');
-    };
-
-    // 3. FUNCIÓN DE REFRESH (usada por el interceptor)
-    const refreshAccessToken = async () => {
-        const storedRefreshToken = await AsyncStorage.getItem('refreshToken');
-        if (!storedRefreshToken) {
-            // Si no hay token, deslogueamos
-            logout(); 
-            throw new Error("No refresh token");
-        }
-
-        // Llamamos a /refresh enviando el token en el BODY
-        const res = await api.post('/usuarios/refresh', { 
-            refreshToken: storedRefreshToken 
-        });
-        
-        const newAccessToken = res.data.token;
-        const decodedUser = jwtDecode(newAccessToken);
-
-        setToken(newAccessToken);
-        setUser(decodedUser);
-        setIsAuthenticated(true);
-        
-        return newAccessToken; // Devolver el nuevo token
-    };
-
-    // 4. VERIFICAR SESIÓN AL CARGAR LA APP
-    useEffect(() => {
-        const checkLoginStatus = async () => {
-            try {
-                await refreshAccessToken();
-            } catch (error) {
-                // No hay refresh token válido o falló
-                setIsAuthenticated(false);
-                setUser(null);
-                setToken(null);
-            }
-            setLoading(false);
-        };
-        checkLoginStatus();
-    }, []);
-
-    return (
-        <AuthContext.Provider value={{
-            user,
-            token,
-            isAuthenticated,
-            loading,
-            login,
-            logout,
-            refreshAccessToken // <-- Exponemos la función
-        }}>
-            {/* Solo muestra la app cuando la carga inicial de auth termina */}
-            {!loading && children}
-        </AuthContext.Provider>
-    );
-};
-=======
   const context = useContext(AuthContext);
   if (!context) throw new Error('useAuth debe usarse dentro de un AuthProvider');
   return context;
@@ -176,4 +86,3 @@ useEffect(() => {
     </AuthContext.Provider>
   );
 };
->>>>>>> 98ee1a2876fe820e0ac4f823cda077cd395387ba

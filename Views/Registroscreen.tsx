@@ -1,17 +1,17 @@
-import React, { useState } from 'react';
+import { useFonts } from 'expo-font';
+import { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  ImageBackground,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  ImageBackground,
+  View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native'; // <-- Importación CLAVE para navegación
-import { api } from '../api/axios'; 
-import { useFonts } from 'expo-font';
+import { api } from '../api/axios';
+import { useNavigation } from '../hooks/useNav'; // <-- Importación CLAVE para navegación
 
 // NOTA: Se elimina 'type RegisterProps' ya que usamos useNavigation
 // NOTA: Asegúrate de que tu componente de Login se llame 'LoginScreen' en tu Navigation Stack
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   overlay: { 
-    ...StyleSheet.absoluteFillObject, 
+    ...StyleSheet.absoluteFill, 
     backgroundColor: 'rgba(0,0,0,0.55)' 
   },
   headerContainer: {

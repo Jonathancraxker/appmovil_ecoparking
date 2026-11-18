@@ -105,3 +105,27 @@ export const deleteInvitadoService = async (id: number) => {
     throw error.response?.data || { message: "Error al eliminar invitado" };
   }
 };
+
+// Registrar ENTRADA de un invitado (el backend marca a todos los ocupantes del mismo cajón)
+export const registrarEntradaInvitadoService = async (id: number) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const response = await api.patch(`/invitados/${id}/entrada`, {});
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Error al registrar la entrada" };
+  }
+};
+
+// Registrar SALIDA de un invitado (libera el cajón y finaliza la cita si ya no queda nadie dentro)
+export const registrarSalidaInvitadoService = async (id: number) => {
+  try {
+    const token = await AsyncStorage.getItem("accessToken");
+    api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    const response = await api.patch(`/invitados/${id}/salida`, {});
+    return response.data;
+  } catch (error: any) {
+    throw error.response?.data || { message: "Error al registrar la salida" };
+  }
+};

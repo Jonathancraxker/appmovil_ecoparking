@@ -1,20 +1,20 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { Picker } from '@react-native-picker/picker'; 
-import { useIsFocused } from '@react-navigation/native';
+import { Picker } from '@react-native-picker/picker';
+import { useIsFocused } from '../../hooks/useNav';
 import { useFonts } from 'expo-font';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
     ActivityIndicator,
     Alert,
     Modal,
     ScrollView,
     StyleSheet,
+    Switch,
     Text,
     TextInput,
     TouchableOpacity,
-    View,
-    Switch
+    View
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 
@@ -37,7 +37,9 @@ import {
 } from "../../services/citasServiceAdm";
 
 // IMPORTACIÓN DEL SERVICIO DE CAJONES
+import EstadoVisitaBadge from '../../components/EstadoVisitaBadge';
 import { filtrarCajonesService } from '../../services/cajonesService';
+import { esConductor, getConductores } from '../../utils/invitados';
 
 export default function Homeadm() {
   // --- ESTADOS UI ---
@@ -116,14 +118,7 @@ export default function Homeadm() {
 
   // --- 🟢 LÓGICA INTELIGENTE: Identificar Conductores Únicos ---
   // Evita que los pasajeros aparezcan en la lista como conductores
-  const conductoresUnicos: any[] = [];
-  const cajonesVistos = new Set();
-  invitadosList.forEach(inv => {
-      if (inv.id_cajon && !cajonesVistos.has(inv.id_cajon)) {
-          cajonesVistos.add(inv.id_cajon);
-          conductoresUnicos.push(inv);
-      }
-  });
+  const conductoresUnicos: any[] = getConductores(invitadosList);
 
   // --- 🟢 FILTRO INTELIGENTE DE CAJONES LOCALES ---
   // Oculta los cajones que ya fueron apartados por otros conductores de esta misma lista
@@ -200,6 +195,10 @@ export default function Homeadm() {
     }
 
     if (action === 'invitados') {
+        if (cita.estado_cita === 'Finalizada') {
+            Alert.alert('Cita finalizada', 'La cita ya finalizó; no se pueden modificar sus invitados.');
+            return;
+        }
         setLoading(true);
         try {
             const invitados = await getInvitadosByCitaService(cita.id);
@@ -281,7 +280,8 @@ export default function Homeadm() {
 
       try {
           const payload = { 
-              ...formInvitado, 
+              ...formInvitado,
+              tipo_acompanante: traeVehiculo ? 'Conductor' : 'Acompañante', 
               matricula: matriculaFinal,
               id_cajon: idCajonFinal ? Number(idCajonFinal) : null,
               id_cita: selectedCita.id 
@@ -317,7 +317,7 @@ export default function Homeadm() {
       
       // 🟢 MAGIA: Determinar de forma inteligente si es Conductor Principal o Pasajero
       if (inv.id_cajon) {
-          const esConductorPrincipal = invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id;
+          const esConductorPrincipal = esConductor(inv, invitadosList);
           
           if (esConductorPrincipal) {
               setTraeVehiculo(true);
@@ -580,13 +580,14 @@ export default function Homeadm() {
                     ) : (
                         invitadosList.map((inv, idx) => {
                             // 🟢 Calculamos en tiempo real quién es el conductor y quién es el pasajero
-                            const esPrincipal = inv.id_cajon ? invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id : false;
+                            const esPrincipal = esConductor(inv, invitadosList);
 
                             return (
                                 <View key={inv.id} style={[styles.guestItem, {borderLeftColor: inv.id_cajon ? (esPrincipal ? '#3498DB' : '#F39C12') : '#AAB7B8', borderLeftWidth: 4}]}>
                                     <View style={{flex: 1}}>
                                         <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
                                         <Text style={styles.guestDetails}>{inv.correo} • Matrícula: {inv.matricula || 'N/A'}</Text>
+                                        <EstadoVisitaBadge estado={inv.estado_visita} />
                                         <Text style={{fontFamily: 'Inter', color: inv.id_cajon ? (esPrincipal ? '#27AE60' : '#888') : '#888', fontSize: 11, fontWeight: 'bold'}}>
                                             {inv.id_cajon ? (esPrincipal ? `🚗 Conductor (Cajón: ${inv.numero_cajon || inv.id_cajon})` : '🚶‍♂️ Pasajero (Compartido)') : '🚶‍♂️ Sin Vehículo'}
                                         </Text>

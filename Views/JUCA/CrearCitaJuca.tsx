@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-  Switch
+  View
 } from 'react-native';
 
-import { Picker } from '@react-native-picker/picker'; 
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 
 import { useFonts } from 'expo-font';
 import HeaderAdmin from '../../components/HeaderAdmin'; // NOTA: Cambia esto a HeaderJucas si tienes un header específico para el Juca
+import { filtrarCajonesService } from '../../services/cajonesService';
 import { registrarCitaService } from '../../services/citasServiceAdm'; // Asegúrate de que las rutas a los servicios sean correctas para este rol
-import { filtrarCajonesService } from '../../services/cajonesService'; 
 
 export default function CrearCitaJuca() {
 
@@ -164,7 +164,8 @@ export default function CrearCitaJuca() {
         ...nuevoInvitado, 
         matricula: matriculaFinal,
         id_cajon: idCajonFinal,
-        es_conductor: traeVehiculo // 🟢 Marcamos quién maneja para que no se clonen los pasajeros
+        es_conductor: traeVehiculo,
+        tipo_acompanante: traeVehiculo ? 'Conductor' : 'Acompañante' // 🟢 Marcamos quién maneja para que no se clonen los pasajeros
     }]);
 
     // 4. Limpiar campos del invitado

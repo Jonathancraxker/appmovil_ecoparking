@@ -1,44 +1,45 @@
-import React, { useState, useEffect, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  Switch
-} from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useFonts } from 'expo-font';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
+import { useIsFocused, useNavigation } from '../../hooks/useNav';
+import { useFonts } from 'expo-font';
+import { useEffect, useRef, useState } from 'react';
+import {
+    ActivityIndicator,
+    Alert,
+    Modal,
+    ScrollView,
+    StyleSheet,
+    Switch,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { Picker } from '@react-native-picker/picker'; 
-import { useIsFocused, useNavigation } from '@react-navigation/native';
 
 // Importaciones de Expo
-import * as MediaLibrary from 'expo-media-library';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
 import * as Sharing from 'expo-sharing';
 import { captureRef } from 'react-native-view-shot';
-import HeaderJucas from '../../components/HeaderJucas'; 
+import HeaderJucas from '../../components/HeaderJucas';
 
 // IMPORTAMOS EL SERVICIO QUE TRAE SOLO "MIS CITAS"
 import {
-  getMisCitasJucaService,
-  deleteCitaService,
-  updateCitaService,
-  getInvitadosByCitaService,
-  registrarInvitadoService,
-  updateInvitadoService,
-  deleteInvitadoService
+    deleteCitaService,
+    deleteInvitadoService,
+    getInvitadosByCitaService,
+    getMisCitasJucaService,
+    registrarInvitadoService,
+    updateCitaService,
+    updateInvitadoService
 } from "../../services/citasServiceJuca";
 
 // IMPORTAMOS EL SERVICIO DE CAJONES
+import EstadoVisitaBadge from '../../components/EstadoVisitaBadge';
 import { filtrarCajonesService } from '../../services/cajonesService';
+import { esConductor, getConductores } from '../../utils/invitados';
 
 export default function CitasJuca() {
   const navigation = useNavigation<any>();
@@ -117,14 +118,7 @@ export default function CitasJuca() {
   };
 
   // --- 🟢 LÓGICA INTELIGENTE: Identificar Conductores Únicos ---
-  const conductoresUnicos: any[] = [];
-  const cajonesVistos = new Set();
-  invitadosList.forEach(inv => {
-      if (inv.id_cajon && !cajonesVistos.has(inv.id_cajon)) {
-          cajonesVistos.add(inv.id_cajon);
-          conductoresUnicos.push(inv);
-      }
-  });
+  const conductoresUnicos: any[] = getConductores(invitadosList);
 
   // --- 🟢 FILTRO INTELIGENTE DE CAJONES LOCALES ---
   const cajonesDisponiblesLocales = cajones.filter(cajonBD => {
@@ -197,6 +191,10 @@ export default function CitasJuca() {
     }
 
     if (action === 'invitados') {
+        if (cita.estado_cita === 'Finalizada') {
+            Alert.alert('Cita finalizada', 'La cita ya finalizó; no se pueden modificar sus invitados.');
+            return;
+        }
         setLoading(true);
         try {
             const invitados = await getInvitadosByCitaService(cita.id);
@@ -283,7 +281,8 @@ export default function CitasJuca() {
 
       try {
           const payload = { 
-              ...formInvitado, 
+              ...formInvitado,
+              tipo_acompanante: traeVehiculo ? 'Conductor' : 'Acompañante', 
               matricula: matriculaFinal,
               id_cajon: idCajonFinal ? Number(idCajonFinal) : null,
               id_cita: selectedCita.id 
@@ -319,7 +318,7 @@ export default function CitasJuca() {
       });
 
       if (inv.id_cajon) {
-          const esConductorPrincipal = invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id;
+          const esConductorPrincipal = esConductor(inv, invitadosList);
           
           if (esConductorPrincipal) {
               setTraeVehiculo(true);
@@ -589,13 +588,14 @@ export default function CitasJuca() {
                     ) : (
                         invitadosList.map((inv, idx) => {
                             // 🟢 Calculamos en tiempo real quién es el conductor y quién es el pasajero
-                            const esPrincipal = inv.id_cajon ? invitadosList.find(c => c.id_cajon === inv.id_cajon)?.id === inv.id : false;
+                            const esPrincipal = esConductor(inv, invitadosList);
 
                             return (
                                 <View key={inv.id} style={[styles.guestItem, {borderLeftColor: inv.id_cajon ? (esPrincipal ? '#3498DB' : '#F39C12') : '#AAB7B8', borderLeftWidth: 4}]}>
                                     <View style={{flex: 1}}>
                                         <Text style={styles.guestName}>{idx + 1}. {inv.nombre} <Text style={styles.guestType}>({inv.tipo_visitante})</Text></Text>
                                         <Text style={styles.guestDetails}>{inv.correo} • {inv.empresa} {inv.matricula ? `• Matrícula: ${inv.matricula}` : ''}</Text>
+                                        <EstadoVisitaBadge estado={inv.estado_visita} />
                                         <Text style={{fontFamily: 'Inter', color: inv.id_cajon ? (esPrincipal ? '#27AE60' : '#888') : '#888', fontSize: 11, fontWeight: 'bold'}}>
                                             {inv.id_cajon ? (esPrincipal ? `🚗 Conductor (Cajón: ${inv.numero_cajon || inv.id_cajon})` : '🚶‍♂️ Pasajero (Compartido)') : '🚶‍♂️ Sin Vehículo'}
                                         </Text>

@@ -13,8 +13,7 @@ import {
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import HeaderAdmin from '../../components/HeaderAdmin'; // Usamos HeaderAdmin si es para el admin
 import { useFonts } from 'expo-font';
-import { useIsFocused } from '@react-navigation/native';
-
+import { useIsFocused } from '../../hooks/useNav';
 // Importamos tus servicios existentes
 import {
   getUsersService,
