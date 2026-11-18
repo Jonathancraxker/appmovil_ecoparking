@@ -1,13 +1,12 @@
 // Views/HomeScreen.tsx
 import { MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
-import React from 'react';
+import { useRouter } from 'expo-router';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import HeaderJucas from '../../components/HeaderJucas';
 
 export default function HomeScreen() {
-  const navigation = useNavigation();
+  const router = useRouter();
 
   const [fontsLoaded] = useFonts({
     Poppins: require('../../assets/fonts/Poppins/Poppins-Regular.ttf'),
@@ -26,19 +25,19 @@ export default function HomeScreen() {
         <View style={styles.cardContainer}>
 
           {/* 🔹 Ir a Gestionar Citas */}
-          <TouchableOpacity
+          {/* <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('gestionarcitas')}
+            onPress={() => navigation.navigate('gestionarCitasJuca')}
           >
             <MaterialIcons name="calendar-today" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Citas</Text>
             <Text style={styles.cardDesc}>Gestiona tus citas y horarios</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
 
           {/* 🔹 Ir a Gestionar Citas */}
           <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('gestionarCitasJuca')}
+            onPress={() => router.push('gestionarCitasJuca')}
           >
             <MaterialIcons name="calendar-today" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Mis Citas</Text>
@@ -48,7 +47,7 @@ export default function HomeScreen() {
           {/* 🔹 Ir a Gestionar Usuarios */}
           <TouchableOpacity
             style={styles.card}
-            onPress={() => navigation.navigate('gestionarusuario')}
+            onPress={() => router.push('gestionarusuario')}
           >
             <MaterialIcons name="people-outline" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Clientes</Text>
@@ -56,14 +55,14 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.card} 
-          onPress={() => navigation.navigate('perfilJuca')}>
+          onPress={() => router.push('perfilJuca')}>
             <MaterialIcons name="settings" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Configuración</Text>
             <Text style={styles.cardDesc}>Ajusta tu cuenta y preferencias</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.card} 
-          onPress={() => navigation.navigate('reportes')}>
+          onPress={() => router.push('reportes')}>
             <MaterialIcons name="bar-chart" size={40} color="#6C9A8B" />
             <Text style={styles.cardTitle}>Reportes</Text>
             <Text style={styles.cardDesc}>Revisa las estadísticas</Text>

@@ -1,25 +1,25 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ScrollView,
-  ActivityIndicator,
-  Platform,
-  Switch
+  View
 } from 'react-native';
 
-import { Picker } from '@react-native-picker/picker'; 
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { Picker } from '@react-native-picker/picker';
 
 import { useFonts } from 'expo-font';
-import HeaderAdmin from '../../components/HeaderAdmin'; 
+import HeaderAdmin from '../../components/HeaderAdmin';
+import { filtrarCajonesService } from '../../services/cajonesService';
 import { registrarCitaService } from '../../services/citasServiceAdm';
-import { filtrarCajonesService } from '../../services/cajonesService'; 
 
 export default function CitasAdmin() {
 
@@ -156,7 +156,8 @@ export default function CitasAdmin() {
         ...nuevoInvitado, 
         matricula: matriculaFinal,
         id_cajon: idCajonFinal,
-        es_conductor: traeVehiculo 
+        es_conductor: traeVehiculo,
+        tipo_acompanante: traeVehiculo ? 'Conductor' : 'Acompañante' 
     }]);
 
     setNuevoInvitado({ nombre: '', correo: '', empresa: '', tipo_visitante: '', matricula: '' });

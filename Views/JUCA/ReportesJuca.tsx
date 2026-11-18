@@ -13,7 +13,7 @@ import {
 import { useFonts } from 'expo-font';
 import { FontAwesome5 } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
-import { useIsFocused } from '@react-navigation/native';
+import { useIsFocused } from '../../hooks/useNav';
 
 // Importaciones para Archivos
 import * as FileSystem from 'expo-file-system/legacy';
